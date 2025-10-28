@@ -4,6 +4,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 1. AÇIK MOD (LIGHT MODE)
+  Bu, varsayılan temamızdır.
+*/
 :root {
   /* Base Docs inspired color palette */
   --background: #ffffff;
@@ -28,31 +31,36 @@
   --radius: 0.5rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Keep white background even in dark mode */
-    --background: #ffffff;
-    --foreground: #0f172a;
-    --card: #ffffff;
-    --card-foreground: #0f172a;
-    --popover: #ffffff;
-    --popover-foreground: #0f172a;
-    --primary: #0052ff;
-    --primary-foreground: #ffffff;
-    --secondary: #f1f5f9;
-    --secondary-foreground: #0f172a;
-    --muted: #f8fafc;
-    --muted-foreground: #64748b;
-    --accent: #f1f5f9;
-    --accent-foreground: #0f172a;
-    --destructive: #ef4444;
-    --destructive-foreground: #ffffff;
-    --border: #e2e8f0;
-    --input: #e2e8f0;
-    --ring: #0052ff;
-  }
+/* 2. KARANLIK MOD (DARK MODE)
+  layout.tsx'teki "dark" class'ı burayı tetikler.
+  Sizin istediğiniz siyah/mavi temayı burada tanımlıyoruz.
+*/
+.dark {
+  --background: #000000; /* Koyu Lacivert/Siyah Arkaplan */
+  --foreground: #f8fafc; /* Beyaz Metin */
+  --card: #000000; /* Koyu Gri Kart */
+  --card-foreground: #f8fafc; /* Beyaz Kart Metni */
+  --popover: #1e293b;
+  --popover-foreground: #f8fafc;
+  --primary: #0052ff; /* Ana Renk (Base Mavisi) */
+  --primary-foreground: #ffffff;
+  --secondary: #334155; /* İkincil Renk (Butonlar) */
+  --secondary-foreground: #f8fafc;
+  --muted: #334155;
+  --muted-foreground: #94a3b8; /* Soluk Metin (Alt başlık) */
+  --accent: #334155;
+  --accent-foreground: #f8fafc;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #334155; /* Kenarlık Rengi */
+  --input: #334155;
+  --ring: #0052ff;
+  --radius: 0.5rem;
 }
 
+/*
+  3. Kalan stiller (dokunmuyoruz)
+*/
 body {
   color: var(--foreground);
   background: var(--background);
