@@ -1,17 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-// Sizin istediğiniz gibi, hook'lar 'wagmi' den geliyor
+
+// Gerekli tüm importlar
 import { useAccount, useConnect, useReadContract, useWriteContract, useWaitForTransactionReceipt, useDisconnect } from 'wagmi';
-// Doğru Farcaster hook'u '@farcaster/auth-kit' paketinden
 import { useProfile } from '@farcaster/auth-kit';
-// '~/lib/abi' alias yolunu kullanıyoruz
 import { contractAddress, contractAbi } from '~/lib/abi'; 
 import { Address } from 'viem';
-// Connector tipi '@wagmi/core' dan geliyor
 import { Connector } from '@wagmi/core';
 
-// Dil çevirileri
+// Dil çevirileri (Aynı kaldı)
 const translations = {
   en: {
     title: 'Base Polls',
@@ -28,7 +26,7 @@ const translations = {
     // Cüzdan Durumları
     connectWallet: 'Connecting Wallet...',
     walletConnected: 'Wallet Connected',
-    walletDisconnected: 'Wallet Disconnected. Connect via menu.', // YENİ
+    walletDisconnected: 'Wallet Disconnected. Connect via menu.', 
     checkVoteStatus: 'Loading poll status...',
     alreadyVoted: 'You have already voted in this poll.',
     notVoted: 'You have not voted in this poll yet.',
@@ -41,7 +39,9 @@ const translations = {
     profile: 'Profile',
     fid: 'FID',
     disconnect: 'Disconnect',
-    connectWalletButton: 'Connect Wallet', // YENİ
+    connectWalletButton: 'Connect Wallet',
+    // YENİ: Yükleme ekranı
+    loadingPoll: "Loading today's poll...", 
   },
   tr: {
     title: 'Base Polls',
@@ -58,7 +58,7 @@ const translations = {
     // Cüzdan Durumları
     connectWallet: 'Cüzdan Bağlanıyor...',
     walletConnected: 'Cüzdan Bağlandı',
-    walletDisconnected: 'Cüzdan bağlı değil. Menüden bağlanın.', // YENİ
+    walletDisconnected: 'Cüzdan bağlı değil. Menüden bağlanın.', 
     checkVoteStatus: 'Anket durumu yükleniyor...',
     alreadyVoted: 'Bu ankete zaten oy verdiniz.',
     notVoted: 'Bu ankete henüz oy vermediniz.',
@@ -71,7 +71,9 @@ const translations = {
     profile: 'Profil',
     fid: 'FID',
     disconnect: 'Bağlantıyı Kes',
-    connectWalletButton: 'Cüzdan Bağla', // YENİ
+    connectWalletButton: 'Cüzdan Bağla',
+    // YENİ: Yükleme ekranı
+    loadingPoll: "Günün anketini yüklüyor...",
   }
 };
 
@@ -79,37 +81,44 @@ type Language = 'en' | 'tr';
 const CURRENT_POLL_ID = 1;
 type VoteStatus = 'idle' | 'loading' | 'success' | 'failed' | 'confirming' | 'processing';
 
+
+// --- YENİ: Yükleme Ekranı Bileşeni ---
+// 'lang' prop'u alarak yükleme metnini de çevirebilir
+const LoadingScreen = ({ lang }: { lang: Language }) => (
+  <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
+    {/* Basit bir 'pulse' (atma) animasyonu */}
+    <div className="animate-pulse"> 
+      <h1 className="text-5xl font-bold text-base-blue-600">Base Polls</h1>
+    </div>
+    <p className="text-muted-foreground mt-4">
+      {lang === 'en' ? translations.en.loadingPoll : translations.tr.loadingPoll}
+    </p>
+  </main>
+);
+// --- Yükleme Ekranı Sonu ---
+
+
 export default function BasePollsPage() {
+  // YENİ: Ana uygulama yükleme durumu
+  const [appLoading, setAppLoading] = useState(true); 
+  
   const [lang, setLang] = useState<Language>('en');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [voteStatus, setVoteStatus] = useState<VoteStatus>('idle');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  // YENİ STATE: Kullanıcının manuel çıkış yapıp yapmadığını takip eder
   const [manualDisconnect, setManualDisconnect] = useState(false);
 
   const t = translations[lang];
 
   // --- Cüzdan Hook'ları ---
   const { connect, connectors } = useConnect();
-  const { address, isConnected, isConnecting } /* 'isConnecting' eklendi */ = useAccount();
+  // 'isConnecting' cüzdanın bağlanma durumunu izlemek için
+  const { address, isConnected, isConnecting } = useAccount(); 
   const { disconnect } = useDisconnect();
   const { isAuthenticated, profile } = useProfile();
 
-  // Cüzdan bağlama useEffect'i
-  useEffect(() => {
-    const connectWallet = async () => {
-      // YALNIZCA KULLANICI MANUEL ÇIKIŞ YAPMADIYSA OTOMATİK BAĞLAN
-      if (!isConnected && !manualDisconnect && connectors.length > 0) {
-        const farcasterConnector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
-        if (farcasterConnector) {
-          await connect({ connector: farcasterConnector });
-        }
-      }
-    };
-    connectWallet();
-  }, [isConnected, connect, connectors, manualDisconnect]); // 'manualDisconnect' dependency'sini ekle
-
   // --- Sözleşme Hook'ları ---
+  // 'isLoadingHasVoted' anket durumunun yüklenmesini izlemek için
   const { data: hasVoted, isLoading: isLoadingHasVoted } = useReadContract({
     address: contractAddress,
     abi: contractAbi,
@@ -118,10 +127,44 @@ export default function BasePollsPage() {
     query: { enabled: !!address },
   });
 
+  // --- YENİ: Ana Yükleme Durumu Effect'i ---
+  useEffect(() => {
+    // Cüzdanın bağlanmasını VE ilk anket durumunun yüklenmesini bekliyoruz
+    // (veya cüzdan bağlı değilse 'isConnecting' false olur)
+    const dataLoaded = !isConnecting && !isLoadingHasVoted;
+
+    if (dataLoaded) {
+      // Veri yüklendi, ancak animasyonun pürüzsüz görünmesi için 
+      // en az 1.5 saniye bekleyelim.
+      const timer = setTimeout(() => {
+        setAppLoading(false);
+      }, 1500); // Minimum 1.5 saniye yükleme ekranı
+
+      return () => clearTimeout(timer);
+    }
+    // Veri yüklenmediyse 'appLoading' true kalır
+  }, [isConnecting, isLoadingHasVoted]);
+  // --- Yükleme Effect'i Sonu ---
+
+
+  // Cüzdan bağlama useEffect'i
+  useEffect(() => {
+    const connectWallet = async () => {
+      // YALNIZCA KULLANICI MANUEL ÇIKIŞ YAPMADIYSA OTOMATİK BAĞLAN
+      if (!isConnected && !isConnecting && !manualDisconnect && connectors.length > 0) {
+        const farcasterConnector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
+        if (farcasterConnector) {
+          await connect({ connector: farcasterConnector });
+        }
+      }
+    };
+    connectWallet();
+  }, [isConnected, isConnecting, connect, connectors, manualDisconnect]); // 'isConnecting' eklendi
+
+  // ... (Diğer tüm fonksiyonlar aynı kalır) ...
   const { data: hash, writeContract, isPending: isVoteProcessing } = useWriteContract();
   const { isLoading: isVoteConfirming, isSuccess: isVoteSuccess } = useWaitForTransactionReceipt({ hash });
 
-  // Oylama Mantığı
   const handleSelectOption = (optionId: number) => {
     if (hasVoted || isVoteSuccess || isVoteProcessing || isVoteConfirming) return;
     setSelectedOption(optionId);
@@ -144,14 +187,13 @@ export default function BasePollsPage() {
     else if (isVoteSuccess) setVoteStatus('success');
   }, [isVoteProcessing, isVoteConfirming, isVoteSuccess]);
 
-  // --- YENİ MENÜ FONKSİYONLARI ---
   const toggleLanguage = () => {
     setLang(lang === 'en' ? 'tr' : 'en');
   };
   
   const handleDisconnect = () => {
     disconnect();
-    setManualDisconnect(true); // Kullanıcının çıkış yaptığını işaretle
+    setManualDisconnect(true); 
     setIsDropdownOpen(false);
   };
 
@@ -159,40 +201,50 @@ export default function BasePollsPage() {
     const farcasterConnector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
     if (farcasterConnector) {
       await connect({ connector: farcasterConnector });
-      setManualDisconnect(false); // Kullanıcı tekrar bağlanmak istedi, işareti kaldır
+      setManualDisconnect(false); 
       setIsDropdownOpen(false);
     }
   };
-  // --- MENÜ FONKSİYONLARI SONU ---
 
-  // Durum Değişkenleri
   const hasAlreadyVotedOrIsProcessing = !isConnected || isLoadingHasVoted || isVoteProcessing || isVoteConfirming || isVoteSuccess || hasVoted;
   const submitButtonDisabled = hasAlreadyVotedOrIsProcessing || selectedOption === null;
 
-  // Durum Mesajı Bileşeni
   const StatusMessage = () => {
-    if (isConnecting) return <p className="text-amber-400">{t.connectWallet}</p>; // YENİ
-    if (!isConnected) return <p className="text-red-400">{t.walletDisconnected}</p>; // YENİ
+    // YENİ: Yükleme ekranı bittikten sonraki ara durumlar
+    if (isConnecting) return <p className="text-amber-400">{t.connectWallet}</p>; 
+    if (!isConnected && manualDisconnect) return <p className="text-red-400">{t.walletDisconnected}</p>;
+    
+    // Yükleme ekranı bittiğinde cüzdan bağlı değilse (otomatik bağlanma başarısız olduysa)
+    if (!isConnected && !manualDisconnect && !isConnecting) return <p className="text-red-400">{t.walletDisconnected}</p>;
+
+    // Cüzdan bağlandıktan sonraki durumlar
     if (isLoadingHasVoted) return <p className="text-gray-400">{t.checkVoteStatus}</p>;
     if (isVoteProcessing) return <p className="text-blue-400">{t.voteProcessing}</p>;
     if (isVoteConfirming) return <p className="text-blue-400">{t.voteConfirming}</p>;
     if (isVoteSuccess) return <p className="text-green-400">{t.voteSuccess}</p>;
     if (hasVoted === true) return <p className="text-green-400">{t.alreadyVoted}</p>;
     if (hasVoted === false) return <p className="text-gray-300">{t.notVoted}</p>;
+    
     return <p className="text-green-400">{t.walletConnected}</p>;
   };
 
+  // --- YENİ: Ana Render Mantığı ---
+  if (appLoading) {
+    return <LoadingScreen lang={lang} />; // Dil prop'unu yükleme ekranına iletiyoruz
+  }
+  // --- Yükleme Ekranı Render Sonu ---
+
+  // appLoading 'false' ise, ana anket sayfasını göster
   return (
     <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
       <div className="w-full max-w-md p-6 bg-card rounded-lg border border-border shadow-xl relative">
         
-        {/* --- YENİ PROFİL MENÜSÜ --- */}
+        {/* --- Profil Menüsü (Aynı kaldı) --- */}
         <div className="absolute top-4 right-4">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="w-10 h-10 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-base-blue-500"
           >
-            {/* Hamburger İkonu (SVG) - 3. görseldeki gibi */}
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="3" y1="12" x2="21" y2="12"></line>
               <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -200,11 +252,9 @@ export default function BasePollsPage() {
             </svg>
           </button>
           
-          {/* Açılır Menü (YENİ LOGIC) */}
           {isDropdownOpen && (
             <div className="absolute top-12 right-0 w-64 bg-card border border-border rounded-lg shadow-lg z-10 py-2">
               
-              {/* Cüzdan bağlıysa göster */}
               {isConnected && isAuthenticated && (
                 <>
                   <div className="px-4 py-3 border-b border-border">
@@ -217,7 +267,6 @@ export default function BasePollsPage() {
                 </>
               )}
 
-              {/* Dil Değiştirme (Her zaman görünür) */}
               <div className="px-4 py-2 border-b border-border">
                 <p className="text-sm text-muted-foreground mb-2">Language</p>
                 <div className="flex space-x-2">
@@ -236,7 +285,6 @@ export default function BasePollsPage() {
                 </div>
               </div>
               
-              {/* Cüzdan durumuna göre buton */}
               {isConnected ? (
                 <button
                   onClick={handleDisconnect}
@@ -257,7 +305,7 @@ export default function BasePollsPage() {
         </div>
         {/* --- Profil Menüsü Sonu --- */}
 
-        <div className="text-center mb-6 pt-12"> {/* Menüye yer açmak için pt-12 */}
+        <div className="text-center mb-6 pt-12"> 
           <h1 className="text-3xl font-bold text-base-blue-600">{t.title}</h1>
           <p className="text-muted-foreground mt-1">{t.subtitle}</p>
         </div>
@@ -289,7 +337,6 @@ export default function BasePollsPage() {
             ))}
           </div>
 
-          {/* --- OY VER BUTONU --- */}
           <button
             onClick={handleSubmitVote}
             disabled={submitButtonDisabled}
@@ -306,7 +353,6 @@ export default function BasePollsPage() {
             }
           </button>
           
-          {/* Oylama Başarılı Mesajı */}
           {isVoteSuccess && (
             <div className="text-center p-3 mt-4 bg-green-900 text-green-100 border border-green-700 rounded-lg">
               {t.votedMessage}
