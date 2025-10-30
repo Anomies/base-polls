@@ -1,18 +1,14 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-
-// HATA 1 DÜZELTME: Sizin de belirttiğiniz gibi, hook'lar 'wagmi' den geliyor
+// Sizin istediğiniz gibi, hook'lar 'wagmi' den geliyor
 import { useAccount, useConnect, useReadContract, useWriteContract, useWaitForTransactionReceipt, useDisconnect } from 'wagmi';
-
-// HATA 2 DÜZELTME: Doğru hook 'useProfile' (auth-kit'ten)
+// Doğru Farcaster hook'u '@farcaster/auth-kit' paketinden
 import { useProfile } from '@farcaster/auth-kit';
-
-// HATA 3 DÜZELTME: Projenin 'tsconfig.json' dosyasında tanımlı olan alias ('~/') yolunu kullanıyoruz
+// '~/lib/abi' alias yolunu kullanıyoruz
 import { contractAddress, contractAbi } from '~/lib/abi'; 
 import { Address } from 'viem';
-
-// HATA 4 DÜZELTME: Connector tipi '@wagmi/core' dan gelir
+// Connector tipi '@wagmi/core' dan geliyor
 import { Connector } from '@wagmi/core';
 
 // Dil çevirileri
@@ -29,9 +25,10 @@ const translations = {
     ],
     votedMessage: 'Thank you for voting!',
     langToggle: 'TR',
-    // Cüzdan ve Oylama Durumları
+    // Cüzdan Durumları
     connectWallet: 'Connecting Wallet...',
     walletConnected: 'Wallet Connected',
+    walletDisconnected: 'Wallet Disconnected. Connect via menu.', // YENİ
     checkVoteStatus: 'Loading poll status...',
     alreadyVoted: 'You have already voted in this poll.',
     notVoted: 'You have not voted in this poll yet.',
@@ -40,9 +37,11 @@ const translations = {
     voteFailed: 'Vote failed. Please try again.',
     voteProcessing: 'Submitting vote...',
     submitVoteButton: 'Submit Vote',
+    // Menü
     profile: 'Profile',
     fid: 'FID',
     disconnect: 'Disconnect',
+    connectWalletButton: 'Connect Wallet', // YENİ
   },
   tr: {
     title: 'Base Polls',
@@ -56,9 +55,10 @@ const translations = {
     ],
     votedMessage: 'Oyunuz alındı, teşekkürler!',
     langToggle: 'EN',
-    // Cüzdan ve Oylama Durumları
+    // Cüzdan Durumları
     connectWallet: 'Cüzdan Bağlanıyor...',
     walletConnected: 'Cüzdan Bağlandı',
+    walletDisconnected: 'Cüzdan bağlı değil. Menüden bağlanın.', // YENİ
     checkVoteStatus: 'Anket durumu yükleniyor...',
     alreadyVoted: 'Bu ankete zaten oy verdiniz.',
     notVoted: 'Bu ankete henüz oy vermediniz.',
@@ -67,15 +67,16 @@ const translations = {
     voteFailed: 'Oylama başarısız. Lütfen tekrar deneyin.',
     voteProcessing: 'Oy gönderiliyor...',
     submitVoteButton: 'Oy Ver',
+    // Menü
     profile: 'Profil',
     fid: 'FID',
     disconnect: 'Bağlantıyı Kes',
+    connectWalletButton: 'Cüzdan Bağla', // YENİ
   }
 };
 
 type Language = 'en' | 'tr';
 const CURRENT_POLL_ID = 1;
-// 'processing' durumunu ekliyoruz (Aşama 8'deki hatayı çözmek için)
 type VoteStatus = 'idle' | 'loading' | 'success' | 'failed' | 'confirming' | 'processing';
 
 export default function BasePollsPage() {
@@ -83,23 +84,22 @@ export default function BasePollsPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [voteStatus, setVoteStatus] = useState<VoteStatus>('idle');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  // YENİ STATE: Kullanıcının manuel çıkış yapıp yapmadığını takip eder
+  const [manualDisconnect, setManualDisconnect] = useState(false);
 
   const t = translations[lang];
 
   // --- Cüzdan Hook'ları ---
   const { connect, connectors } = useConnect();
-  const { address, isConnected, chainId } = useAccount();
+  const { address, isConnected, isConnecting } /* 'isConnecting' eklendi */ = useAccount();
   const { disconnect } = useDisconnect();
-  
-  // Farcaster kimliğini almak için DOĞRU hook'u kullanıyoruz
-  // 'isAuthenticated' (kullanıcı profili yüklendi mi) ve 'profile' (kullanıcı verisi)
   const { isAuthenticated, profile } = useProfile();
 
   // Cüzdan bağlama useEffect'i
   useEffect(() => {
     const connectWallet = async () => {
-      if (!isConnected && connectors.length > 0) {
-        // 'c' parametresine 'Connector' tipini veriyoruz
+      // YALNIZCA KULLANICI MANUEL ÇIKIŞ YAPMADIYSA OTOMATİK BAĞLAN
+      if (!isConnected && !manualDisconnect && connectors.length > 0) {
         const farcasterConnector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
         if (farcasterConnector) {
           await connect({ connector: farcasterConnector });
@@ -107,7 +107,7 @@ export default function BasePollsPage() {
       }
     };
     connectWallet();
-  }, [isConnected, connect, connectors]);
+  }, [isConnected, connect, connectors, manualDisconnect]); // 'manualDisconnect' dependency'sini ekle
 
   // --- Sözleşme Hook'ları ---
   const { data: hasVoted, isLoading: isLoadingHasVoted } = useReadContract({
@@ -129,7 +129,6 @@ export default function BasePollsPage() {
 
   const handleSubmitVote = () => {
     if (selectedOption === null || !address) return;
-    
     setVoteStatus('loading');
     writeContract({
       address: contractAddress,
@@ -139,23 +138,32 @@ export default function BasePollsPage() {
     });
   };
 
-  // Oylama durumunu izle
   useEffect(() => {
     if (isVoteProcessing) setVoteStatus('processing');
     else if (isVoteConfirming) setVoteStatus('confirming');
     else if (isVoteSuccess) setVoteStatus('success');
   }, [isVoteProcessing, isVoteConfirming, isVoteSuccess]);
 
-  // Menü Fonksiyonları
+  // --- YENİ MENÜ FONKSİYONLARI ---
   const toggleLanguage = () => {
     setLang(lang === 'en' ? 'tr' : 'en');
-    setIsDropdownOpen(false);
   };
   
   const handleDisconnect = () => {
     disconnect();
+    setManualDisconnect(true); // Kullanıcının çıkış yaptığını işaretle
     setIsDropdownOpen(false);
   };
+
+  const handleConnect = async () => {
+    const farcasterConnector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
+    if (farcasterConnector) {
+      await connect({ connector: farcasterConnector });
+      setManualDisconnect(false); // Kullanıcı tekrar bağlanmak istedi, işareti kaldır
+      setIsDropdownOpen(false);
+    }
+  };
+  // --- MENÜ FONKSİYONLARI SONU ---
 
   // Durum Değişkenleri
   const hasAlreadyVotedOrIsProcessing = !isConnected || isLoadingHasVoted || isVoteProcessing || isVoteConfirming || isVoteSuccess || hasVoted;
@@ -163,7 +171,8 @@ export default function BasePollsPage() {
 
   // Durum Mesajı Bileşeni
   const StatusMessage = () => {
-    if (!isConnected) return <p className="text-amber-400">{t.connectWallet}</p>;
+    if (isConnecting) return <p className="text-amber-400">{t.connectWallet}</p>; // YENİ
+    if (!isConnected) return <p className="text-red-400">{t.walletDisconnected}</p>; // YENİ
     if (isLoadingHasVoted) return <p className="text-gray-400">{t.checkVoteStatus}</p>;
     if (isVoteProcessing) return <p className="text-blue-400">{t.voteProcessing}</p>;
     if (isVoteConfirming) return <p className="text-blue-400">{t.voteConfirming}</p>;
@@ -177,44 +186,72 @@ export default function BasePollsPage() {
     <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
       <div className="w-full max-w-md p-6 bg-card rounded-lg border border-border shadow-xl relative">
         
-        {/* --- Profil Menüsü --- */}
+        {/* --- YENİ PROFİL MENÜSÜ --- */}
         <div className="absolute top-4 right-4">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="w-10 h-10 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-base-blue-500"
+            className="w-10 h-10 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-base-blue-500"
           >
-            {/* Profil İkonu (SVG) */}
+            {/* Hamburger İkonu (SVG) - 3. görseldeki gibi */}
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
             </svg>
           </button>
           
-          {/* Açılır Menü (Tam kod) */}
+          {/* Açılır Menü (YENİ LOGIC) */}
           {isDropdownOpen && (
             <div className="absolute top-12 right-0 w-64 bg-card border border-border rounded-lg shadow-lg z-10 py-2">
+              
+              {/* Cüzdan bağlıysa göster */}
+              {isConnected && isAuthenticated && (
+                <>
+                  <div className="px-4 py-3 border-b border-border">
+                    <p className="font-bold text-base-blue-600 truncate">{profile?.displayName || t.profile}</p>
+                    {profile?.fid && (
+                      <p className="text-sm text-muted-foreground">{t.fid}: {profile.fid}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground break-all mt-1">{address}</p>
+                  </div>
+                </>
+              )}
+
+              {/* Dil Değiştirme (Her zaman görünür) */}
               <div className="px-4 py-2 border-b border-border">
-                {/* 'profile' hook'undan gelen veriyi kullan */}
-                <p className="font-bold text-base-blue-600">{profile?.displayName || t.profile}</p>
-                {profile?.fid && (
-                  <p className="text-sm text-muted-foreground">{t.fid}: {profile.fid}</p>
-                )}
+                <p className="text-sm text-muted-foreground mb-2">Language</p>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => { setLang('en'); setIsDropdownOpen(false); }}
+                    className={`flex-1 p-2 rounded-md text-sm ${lang === 'en' ? 'bg-base-blue-600 text-white' : 'bg-secondary text-secondary-foreground'}`}
+                  >
+                    English
+                  </button>
+                  <button
+                    onClick={() => { setLang('tr'); setIsDropdownOpen(false); }}
+                    className={`flex-1 p-2 rounded-md text-sm ${lang === 'tr' ? 'bg-base-blue-600 text-white' : 'bg-secondary text-secondary-foreground'}`}
+                  >
+                    Türkçe
+                  </button>
+                </div>
               </div>
-              <div className="px-4 py-2">
-                <p className="text-xs text-muted-foreground break-all">{address}</p>
-              </div>
-              <button
-                onClick={toggleLanguage}
-                className="w-full text-left px-4 py-2 text-sm text-foreground hover:bg-muted"
-              >
-                {t.langToggle === 'TR' ? 'Türkçe' : 'English'}
-              </button>
-              <button
-                onClick={handleDisconnect}
-                className="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-muted"
-              >
-                {t.disconnect}
-              </button>
+              
+              {/* Cüzdan durumuna göre buton */}
+              {isConnected ? (
+                <button
+                  onClick={handleDisconnect}
+                  className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-muted"
+                >
+                  {t.disconnect}
+                </button>
+              ) : (
+                <button
+                  onClick={handleConnect}
+                  className="w-full text-left px-4 py-3 text-sm text-green-500 hover:bg-muted"
+                >
+                  {t.connectWalletButton}
+                </button>
+              )}
             </div>
           )}
         </div>
