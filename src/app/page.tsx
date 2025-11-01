@@ -4,13 +4,19 @@ import React, { useState, useEffect } from 'react';
 
 // Gerekli tüm importlar
 import { useAccount, useConnect, useReadContract, useWriteContract, useWaitForTransactionReceipt, useDisconnect } from 'wagmi';
-import { useProfile } from '@farcaster/auth-kit';
+
+// HATA DÜZELTME: 'useProfile' importunu kaldırıyoruz
+// import { useProfile } from '@farcaster/auth-kit'; 
+
+// HATA DÜZELTME: Doğru hook'u 'FrameProvider'dan import ediyoruz
+import { useFrameContext } from '~/components/providers/FrameProvider';
+
 import { contractAddress, contractAbi } from '~/lib/abi'; 
 import { Address } from 'viem';
 import { Connector } from '@wagmi/core';
 import Image from 'next/image'; // Profil resmi için
 
-// Dil çevirileri
+// Dil çevirileri (Aynı kaldı)
 const translations = {
   en: {
     title: 'Base Polls',
@@ -80,8 +86,7 @@ type Language = 'en' | 'tr';
 const CURRENT_POLL_ID = 1;
 type VoteStatus = 'idle' | 'loading' | 'success' | 'failed' | 'confirming' | 'processing';
 
-
-// --- Yükleme Ekranı Bileşeni ---
+// Yükleme Ekranı (Değişiklik yok)
 const LoadingScreen = ({ lang }: { lang: Language }) => (
   <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
     <div className="animate-pulse"> 
@@ -92,8 +97,6 @@ const LoadingScreen = ({ lang }: { lang: Language }) => (
     </p>
   </main>
 );
-// --- Yükleme Ekranı Sonu ---
-
 
 export default function BasePollsPage() {
   const [appLoading, setAppLoading] = useState(true); 
@@ -107,11 +110,13 @@ export default function BasePollsPage() {
 
   // --- Cüzdan Hook'ları ---
   const { connect, connectors } = useConnect();
-  const { address, isConnected, isConnecting, connector } = useAccount(); // 'connector' objesini alıyoruz
+  const { address, isConnected, isConnecting, connector } = useAccount(); 
   const { disconnect } = useDisconnect();
-  const { isAuthenticated, profile } = useProfile(); // 'useProfile' hook'unu kullanıyoruz
+  
+  // HATA DÜZELTME: Doğru hook'u çağırıyoruz
+  const frameContext = useFrameContext();
 
-  // --- Sözleşme Hook'ları ---
+  // --- Sözleşme Hook'ları (Değişiklik yok) ---
   const { data: hasVoted, isLoading: isLoadingHasVoted } = useReadContract({
     address: contractAddress,
     abi: contractAbi,
@@ -120,7 +125,7 @@ export default function BasePollsPage() {
     query: { enabled: !!address },
   });
 
-  // Yükleme Durumu Effect'i
+  // Yükleme Durumu Effect'i (Değişiklik yok)
   useEffect(() => {
     const isLoading = isConnecting || (isConnected && isLoadingHasVoted);
     if (!isLoading) {
@@ -132,7 +137,7 @@ export default function BasePollsPage() {
   }, [isConnecting, isConnected, isLoadingHasVoted]);
 
 
-  // Cüzdan Bağlama useEffect'i
+  // Cüzdan Bağlama useEffect'i (Değişiklik yok)
   useEffect(() => {
     const autoConnect = async () => {
       if (!isConnected && !isConnecting && !initialAutoConnectAttempted && connectors.length > 0) {
@@ -146,7 +151,7 @@ export default function BasePollsPage() {
     autoConnect();
   }, [connect, connectors, initialAutoConnectAttempted, isConnected, isConnecting]); 
 
-  // Oylama Mantığı
+  // Oylama Mantığı (Değişiklik yok)
   const { data: hash, writeContract, isPending: isVoteProcessing } = useWriteContract();
   const { isLoading: isVoteConfirming, isSuccess: isVoteSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -170,7 +175,7 @@ export default function BasePollsPage() {
     else if (isVoteSuccess) setVoteStatus('success');
   }, [isVoteProcessing, isVoteConfirming, isVoteSuccess]);
 
-  // Menü Fonksiyonları
+  // Menü Fonksiyonları (Değişiklik yok)
   const toggleLanguage = () => {
     setLang(lang === 'en' ? 'tr' : 'en');
   };
@@ -194,13 +199,11 @@ export default function BasePollsPage() {
     }
   };
 
-  // --- HATA DÜZELTME: Değişkenleri buraya (kullanılmadan önceye) taşıyoruz ---
   const hasAlreadyVotedOrIsProcessing = !isConnected || isLoadingHasVoted || isVoteProcessing || isVoteConfirming || isVoteSuccess || hasVoted;
   const submitButtonDisabled = hasAlreadyVotedOrIsProcessing || selectedOption === null;
-  // --- HATA DÜZELTME SONU ---
 
 
-  // Durum Mesajı Bileşeni
+  // Durum Mesajı Bileşeni (Değişiklik yok)
   const StatusMessage = () => {
     if (isConnecting) return <p className="text-amber-400">{t.connectWallet}</p>; 
     if (!isConnected) return <p className="text-red-400">{t.walletDisconnected}</p>;
@@ -217,13 +220,13 @@ export default function BasePollsPage() {
     return <LoadingScreen lang={lang} />;
   }
 
-  // Profil verisini 'connector.data'dan (Farcaster Mini App için) VEYA 'useProfile' hook'undan (Harici bağlantı için) al
-  // Not: 'connector.data' şu an en güvenilir yöntem, biz 'useProfile'ı (isAuthenticated) sadece menüyü göstermek için kullanıyoruz.
-  // Farcaster Preview Tool'da 'useProfile' hook'u çalışmayabilir, ancak 'connector.data' çalışmalıdır.
-  const profileDataFromConnector = (connector?.data as any); 
-  const pfpUrl = profile?.pfpUrl || profileDataFromConnector?.pfpUrl;
-  const displayName = profile?.displayName || profileDataFromConnector?.displayName;
-  const fid = profile?.fid || profileDataFromConnector?.fid;
+  // --- HATA DÜZELTME: Profil verisini 'frameContext'ten alıyoruz ---
+  // FrameProvider'daki 'MiniAppContext' tipine göre veriyi okuyoruz
+  const user = (frameContext?.context as any)?.user; 
+  const pfpUrl = user?.pfpUrl;
+  const displayName = user?.displayName;
+  const fid = user?.fid;
+  // --- HATA DÜZELTME SONU ---
 
 
   // --- ANA RENDER (Menü Güncellendi) ---
@@ -231,7 +234,7 @@ export default function BasePollsPage() {
     <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
       <div className="w-full max-w-md p-6 bg-card rounded-lg border border-border shadow-xl relative">
         
-        {/* --- Profil Menüsü --- */}
+        {/* --- GÜNCELLENMİŞ PROFİL MENÜSÜ --- */}
         <div className="absolute top-4 right-4">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -248,8 +251,8 @@ export default function BasePollsPage() {
           {isDropdownOpen && (
             <div className="absolute top-12 right-0 w-72 bg-card border border-border rounded-lg shadow-lg z-10 py-2">
               
-              {/* Cüzdan bağlıysa ve profil verisi varsa (isAuthenticated VEYA fid varsa) */}
-              {isConnected && (isAuthenticated || fid) && (
+              {/* Cüzdan bağlıysa ve profil verisi (fid) varsa */}
+              {isConnected && fid && (
                 <div className="px-4 py-3 border-b border-border flex items-center space-x-3">
                   {/* Profil Resmi */}
                   {pfpUrl && (
@@ -264,9 +267,7 @@ export default function BasePollsPage() {
                   {/* İsim ve FID */}
                   <div>
                     <p className="font-bold text-base-blue-600 truncate">{displayName || t.profile}</p>
-                    {fid && (
-                      <p className="text-sm text-muted-foreground">{t.fid}: {fid}</p>
-                    )}
+                    <p className="text-sm text-muted-foreground">{t.fid}: {fid}</p>
                   </div>
                 </div>
               )}
@@ -318,11 +319,9 @@ export default function BasePollsPage() {
         </div>
 
         <div className="text-center p-3 mb-4 bg-secondary rounded-lg border border-border">
-          {/* Bu değişkenler artık burada (kullanımdan önce) tanımlı */}
           <StatusMessage />
         </div>
 
-        {/* Anket Bölümü */}
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-card-foreground">{t.question}</h2>
           
