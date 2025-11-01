@@ -22,7 +22,24 @@ const nextConfig: NextConfig = {
         ]
       }
     ];
-  }
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'i.imgur.com', // En yaygın Farcaster PFP hostu
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com', // Diğer yaygın host
+      },
+      {
+        protocol: 'https',
+        hostname: 'imagedelivery.net', // Diğer yaygın host
+      },
+      // Gerektiğinde buraya başka host adları ekleyebilirsiniz
+    ],
+  },
 };
 
 export default nextConfig;
