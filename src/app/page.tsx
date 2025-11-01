@@ -101,20 +101,15 @@ export default function BasePollsPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [voteStatus, setVoteStatus] = useState<VoteStatus>('idle');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  
-  // HATA DÜZELTME: Bu state'i kaldırıyoruz, 'useEffect'i basitleştiriyoruz
-  // const [manualDisconnect, setManualDisconnect] = useState(false);
-  
-  // YENİ STATE: İlk otomatik bağlantı denemesi yapıldı mı?
   const [initialAutoConnectAttempted, setInitialAutoConnectAttempted] = useState(false);
 
   const t = translations[lang];
 
   // --- Cüzdan Hook'ları ---
   const { connect, connectors } = useConnect();
-  const { address, isConnected, isConnecting } = useAccount(); 
+  const { address, isConnected, isConnecting, connector } = useAccount(); // 'connector' objesini alıyoruz
   const { disconnect } = useDisconnect();
-  const { isAuthenticated, profile } = useProfile();
+  const { isAuthenticated, profile } = useProfile(); // 'useProfile' hook'unu kullanıyoruz
 
   // --- Sözleşme Hook'ları ---
   const { data: hasVoted, isLoading: isLoadingHasVoted } = useReadContract({
@@ -125,31 +120,23 @@ export default function BasePollsPage() {
     query: { enabled: !!address },
   });
 
-  // --- Yükleme Durumu Effect'i ---
+  // Yükleme Durumu Effect'i
   useEffect(() => {
-    // isConnecting (cüzdan bağlanıyor) VEYA isLoadingHasVoted (oy durumu yükleniyor)
     const isLoading = isConnecting || (isConnected && isLoadingHasVoted);
-    
     if (!isLoading) {
-      // Veri yüklendi, ancak animasyonun pürüzsüz görünmesi için 
-      // en az 1.5 saniye bekleyelim.
       const timer = setTimeout(() => {
         setAppLoading(false);
       }, 1500); 
-
       return () => clearTimeout(timer);
     }
   }, [isConnecting, isConnected, isLoadingHasVoted]);
 
 
-  // --- GÜNCELLENMİŞ Cüzdan Bağlama useEffect'i ---
+  // Cüzdan Bağlama useEffect'i
   useEffect(() => {
     const autoConnect = async () => {
-      // Sadece bir kez, sayfa ilk yüklendiğinde
       if (!isConnected && !isConnecting && !initialAutoConnectAttempted && connectors.length > 0) {
-        setInitialAutoConnectAttempted(true); // Denemeyi işaretle
-        
-        // Sadece Farcaster cüzdanını (in-app) otomatik bağlamayı dene
+        setInitialAutoConnectAttempted(true); 
         const farcasterConnector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
         if (farcasterConnector) {
           await connect({ connector: farcasterConnector });
@@ -157,16 +144,12 @@ export default function BasePollsPage() {
       }
     };
     autoConnect();
-  // 'isConnected' ve 'isConnecting'i dependency'lerden kaldırıyoruz
-  // Bu sayede sadece 'connectors' dizisi hazır olduğunda 1 kez çalışır
-  }, [connect, connectors, initialAutoConnectAttempted]); 
-  // --- Cüzdan Bağlama useEffect'i SONU ---
+  }, [connect, connectors, initialAutoConnectAttempted, isConnected, isConnecting]); 
 
-
+  // Oylama Mantığı
   const { data: hash, writeContract, isPending: isVoteProcessing } = useWriteContract();
   const { isLoading: isVoteConfirming, isSuccess: isVoteSuccess } = useWaitForTransactionReceipt({ hash });
 
-  // Oylama Mantığı
   const handleSelectOption = (optionId: number) => {
     if (hasVoted || isVoteSuccess || isVoteProcessing || isVoteConfirming) return;
     setSelectedOption(optionId);
@@ -187,48 +170,40 @@ export default function BasePollsPage() {
     else if (isVoteSuccess) setVoteStatus('success');
   }, [isVoteProcessing, isVoteConfirming, isVoteSuccess]);
 
-  // --- GÜNCELLENMİŞ MENÜ FONKSİYONLARI ---
+  // Menü Fonksiyonları
   const toggleLanguage = () => {
     setLang(lang === 'en' ? 'tr' : 'en');
   };
-  
   const handleDisconnect = () => {
     disconnect();
-    // 'manualDisconnect' state'ini artık kullanmıyoruz
     setIsDropdownOpen(false);
   };
-
-  // BU FONKSİYON ARTIK 'useEffect' İLE ÇAKIŞMAYACAK
   const handleConnect = async () => {
     setIsDropdownOpen(false);
-    
-    // Tarayıcıda olduğumuzu varsayarak, harici cüzdanları (tarayıcı eklentileri) ara
-    let connector = connectors.find((c: Connector) => c.id === 'injected'); // MetaMask, Rabby vb.
-    
+    let connector = connectors.find((c: Connector) => c.id === 'injected');
     if (!connector) {
       connector = connectors.find((c: Connector) => c.id === 'coinbaseWallet'); 
     }
-    
-    // Harici cüzdan bulamazsa, son çare Farcaster'ı (in-app) tekrar dene
     if (!connector) {
       connector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
     }
-
     if (connector) {
       await connect({ connector }); 
     } else {
       console.error("Bağlanacak uygun bir cüzdan konektörü bulunamadı.");
     }
   };
-  // --- MENÜ FONKSİYONLARI SONU ---
 
+  // --- HATA DÜZELTME: Değişkenleri buraya (kullanılmadan önceye) taşıyoruz ---
   const hasAlreadyVotedOrIsProcessing = !isConnected || isLoadingHasVoted || isVoteProcessing || isVoteConfirming || isVoteSuccess || hasVoted;
   const submitButtonDisabled = hasAlreadyVotedOrIsProcessing || selectedOption === null;
+  // --- HATA DÜZELTME SONU ---
+
 
   // Durum Mesajı Bileşeni
   const StatusMessage = () => {
     if (isConnecting) return <p className="text-amber-400">{t.connectWallet}</p>; 
-    if (!isConnected) return <p className="text-red-400">{t.walletDisconnected}</p>; // Artık 'manualDisconnect'e bakmıyoruz
+    if (!isConnected) return <p className="text-red-400">{t.walletDisconnected}</p>;
     if (isLoadingHasVoted) return <p className="text-gray-400">{t.checkVoteStatus}</p>;
     if (isVoteProcessing) return <p className="text-blue-400">{t.voteProcessing}</p>;
     if (isVoteConfirming) return <p className="text-blue-400">{t.voteConfirming}</p>;
@@ -238,9 +213,18 @@ export default function BasePollsPage() {
     return <p className="text-green-400">{t.walletConnected}</p>;
   };
   
-  if (appLoading && !initialAutoConnectAttempted) { // 'initialAutoConnectAttempted' kontrolü eklendi
+  if (appLoading && !initialAutoConnectAttempted) { 
     return <LoadingScreen lang={lang} />;
   }
+
+  // Profil verisini 'connector.data'dan (Farcaster Mini App için) VEYA 'useProfile' hook'undan (Harici bağlantı için) al
+  // Not: 'connector.data' şu an en güvenilir yöntem, biz 'useProfile'ı (isAuthenticated) sadece menüyü göstermek için kullanıyoruz.
+  // Farcaster Preview Tool'da 'useProfile' hook'u çalışmayabilir, ancak 'connector.data' çalışmalıdır.
+  const profileDataFromConnector = (connector?.data as any); 
+  const pfpUrl = profile?.pfpUrl || profileDataFromConnector?.pfpUrl;
+  const displayName = profile?.displayName || profileDataFromConnector?.displayName;
+  const fid = profile?.fid || profileDataFromConnector?.fid;
+
 
   // --- ANA RENDER (Menü Güncellendi) ---
   return (
@@ -264,12 +248,13 @@ export default function BasePollsPage() {
           {isDropdownOpen && (
             <div className="absolute top-12 right-0 w-72 bg-card border border-border rounded-lg shadow-lg z-10 py-2">
               
-              {isConnected && isAuthenticated && (
+              {/* Cüzdan bağlıysa ve profil verisi varsa (isAuthenticated VEYA fid varsa) */}
+              {isConnected && (isAuthenticated || fid) && (
                 <div className="px-4 py-3 border-b border-border flex items-center space-x-3">
                   {/* Profil Resmi */}
-                  {profile?.pfpUrl && (
+                  {pfpUrl && (
                     <Image 
-                      src={profile.pfpUrl}
+                      src={pfpUrl}
                       alt="PFP"
                       width={40}
                       height={40}
@@ -278,9 +263,9 @@ export default function BasePollsPage() {
                   )}
                   {/* İsim ve FID */}
                   <div>
-                    <p className="font-bold text-base-blue-600 truncate">{profile?.displayName || t.profile}</p>
-                    {profile?.fid && (
-                      <p className="text-sm text-muted-foreground">{t.fid}: {profile.fid}</p>
+                    <p className="font-bold text-base-blue-600 truncate">{displayName || t.profile}</p>
+                    {fid && (
+                      <p className="text-sm text-muted-foreground">{t.fid}: {fid}</p>
                     )}
                   </div>
                 </div>
@@ -333,9 +318,11 @@ export default function BasePollsPage() {
         </div>
 
         <div className="text-center p-3 mb-4 bg-secondary rounded-lg border border-border">
+          {/* Bu değişkenler artık burada (kullanımdan önce) tanımlı */}
           <StatusMessage />
         </div>
 
+        {/* Anket Bölümü */}
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-card-foreground">{t.question}</h2>
           
