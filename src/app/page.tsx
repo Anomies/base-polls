@@ -41,7 +41,6 @@ const translations = {
     fid: 'FID',
     disconnect: 'Disconnect',
     connectWalletButton: 'Connect Wallet', 
-    // Yükleme ekranı
     loadingPoll: "Loading today's poll...", 
   },
   tr: {
@@ -73,8 +72,6 @@ const translations = {
     fid: 'FID',
     disconnect: 'Bağlantıyı Kes',
     connectWalletButton: 'Cüzdan Bağla',
-    
-    // HATA 2 DÜZELTME: Eksik olan 'loadingPoll' çevirisini 'tr' objesine ekliyoruz
     loadingPoll: "Günün anketini yüklüyor...",
   }
 };
@@ -91,7 +88,6 @@ const LoadingScreen = ({ lang }: { lang: Language }) => (
       <h1 className="text-5xl font-bold text-base-blue-600">Base Polls</h1>
     </div>
     <p className="text-muted-foreground mt-4">
-      {/* Bu satır artık hata vermeyecek */}
       {lang === 'en' ? translations.en.loadingPoll : translations.tr.loadingPoll}
     </p>
   </main>
@@ -105,7 +101,12 @@ export default function BasePollsPage() {
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [voteStatus, setVoteStatus] = useState<VoteStatus>('idle');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [manualDisconnect, setManualDisconnect] = useState(false);
+  
+  // HATA DÜZELTME: Bu state'i kaldırıyoruz, 'useEffect'i basitleştiriyoruz
+  // const [manualDisconnect, setManualDisconnect] = useState(false);
+  
+  // YENİ STATE: İlk otomatik bağlantı denemesi yapıldı mı?
+  const [initialAutoConnectAttempted, setInitialAutoConnectAttempted] = useState(false);
 
   const t = translations[lang];
 
@@ -126,34 +127,46 @@ export default function BasePollsPage() {
 
   // --- Yükleme Durumu Effect'i ---
   useEffect(() => {
-    const dataLoaded = !isConnecting && !isLoadingHasVoted;
-
-    if (dataLoaded) {
+    // isConnecting (cüzdan bağlanıyor) VEYA isLoadingHasVoted (oy durumu yükleniyor)
+    const isLoading = isConnecting || (isConnected && isLoadingHasVoted);
+    
+    if (!isLoading) {
+      // Veri yüklendi, ancak animasyonun pürüzsüz görünmesi için 
+      // en az 1.5 saniye bekleyelim.
       const timer = setTimeout(() => {
         setAppLoading(false);
       }, 1500); 
 
       return () => clearTimeout(timer);
     }
-  }, [isConnecting, isLoadingHasVoted]);
+  }, [isConnecting, isConnected, isLoadingHasVoted]);
 
-  // Cüzdan bağlama useEffect'i
+
+  // --- GÜNCELLENMİŞ Cüzdan Bağlama useEffect'i ---
   useEffect(() => {
-    const connectWallet = async () => {
-      if (!isConnected && !isConnecting && !manualDisconnect && connectors.length > 0) {
+    const autoConnect = async () => {
+      // Sadece bir kez, sayfa ilk yüklendiğinde
+      if (!isConnected && !isConnecting && !initialAutoConnectAttempted && connectors.length > 0) {
+        setInitialAutoConnectAttempted(true); // Denemeyi işaretle
+        
+        // Sadece Farcaster cüzdanını (in-app) otomatik bağlamayı dene
         const farcasterConnector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
         if (farcasterConnector) {
           await connect({ connector: farcasterConnector });
         }
       }
     };
-    connectWallet();
-  }, [isConnected, isConnecting, connect, connectors, manualDisconnect]); 
+    autoConnect();
+  // 'isConnected' ve 'isConnecting'i dependency'lerden kaldırıyoruz
+  // Bu sayede sadece 'connectors' dizisi hazır olduğunda 1 kez çalışır
+  }, [connect, connectors, initialAutoConnectAttempted]); 
+  // --- Cüzdan Bağlama useEffect'i SONU ---
 
-  // ... (Diğer tüm fonksiyonlar aynı kalır) ...
+
   const { data: hash, writeContract, isPending: isVoteProcessing } = useWriteContract();
   const { isLoading: isVoteConfirming, isSuccess: isVoteSuccess } = useWaitForTransactionReceipt({ hash });
 
+  // Oylama Mantığı
   const handleSelectOption = (optionId: number) => {
     if (hasVoted || isVoteSuccess || isVoteProcessing || isVoteConfirming) return;
     setSelectedOption(optionId);
@@ -174,57 +187,48 @@ export default function BasePollsPage() {
     else if (isVoteSuccess) setVoteStatus('success');
   }, [isVoteProcessing, isVoteConfirming, isVoteSuccess]);
 
+  // --- GÜNCELLENMİŞ MENÜ FONKSİYONLARI ---
   const toggleLanguage = () => {
     setLang(lang === 'en' ? 'tr' : 'en');
   };
   
   const handleDisconnect = () => {
     disconnect();
-    setManualDisconnect(true); 
+    // 'manualDisconnect' state'ini artık kullanmıyoruz
     setIsDropdownOpen(false);
   };
 
-  // --- GÜNCELLENMİŞ MENÜ FONKSİYONU ---
+  // BU FONKSİYON ARTIK 'useEffect' İLE ÇAKIŞMAYACAK
   const handleConnect = async () => {
     setIsDropdownOpen(false);
     
-    // Öncelik Farcaster cüzdanı
-    let connector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
+    // Tarayıcıda olduğumuzu varsayarak, harici cüzdanları (tarayıcı eklentileri) ara
+    let connector = connectors.find((c: Connector) => c.id === 'injected'); // MetaMask, Rabby vb.
     
-    // Farcaster cüzdanı bulunamazsa (örn. normal tarayıcıdayız), 'injected' (MetaMask) olanı dene
     if (!connector) {
-      connector = connectors.find((c: Connector) => c.id === 'injected');
+      connector = connectors.find((c: Connector) => c.id === 'coinbaseWallet'); 
     }
     
-    // O da yoksa, Coinbase Wallet'ı dene
+    // Harici cüzdan bulamazsa, son çare Farcaster'ı (in-app) tekrar dene
     if (!connector) {
-      // Not: WagmiProvider'da eklediğimiz ID 'coinbaseWallet' idi,
-      // ancak wagmi v1'de bu 'coinbaseWalletSDK' olarak aranabilir.
-      // Demo projede 'coinbaseWalletSDK' kullanılıyor olabilir.
-      // Biz 'coinbaseWallet' (v2 standardı) ve 'injected' (v1/v2 standardı) deniyoruz.
-      connector = connectors.find((c: Connector) => c.id === 'coinbaseWallet'); 
+      connector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
     }
 
     if (connector) {
-      await connect({ connector });
-      setManualDisconnect(false); // Kullanıcı tekrar bağlanmak istedi
+      await connect({ connector }); 
     } else {
-      // HATA 1 DÜZELTME: Argümansız `connect()` çağrısını kaldırıyoruz.
-      // Eğer 'injected' veya 'coinbaseWallet' bulunamazsa
-      // (ki 'npm install @wagmi/connectors' sonrası bulunmalı),
-      // hiçbir şey yapma.
       console.error("Bağlanacak uygun bir cüzdan konektörü bulunamadı.");
     }
   };
-  // --- MENÜ FONKSİYONU SONU ---
+  // --- MENÜ FONKSİYONLARI SONU ---
 
   const hasAlreadyVotedOrIsProcessing = !isConnected || isLoadingHasVoted || isVoteProcessing || isVoteConfirming || isVoteSuccess || hasVoted;
   const submitButtonDisabled = hasAlreadyVotedOrIsProcessing || selectedOption === null;
 
+  // Durum Mesajı Bileşeni
   const StatusMessage = () => {
     if (isConnecting) return <p className="text-amber-400">{t.connectWallet}</p>; 
-    if (!isConnected && manualDisconnect) return <p className="text-red-400">{t.walletDisconnected}</p>;
-    if (!isConnected && !manualDisconnect && !isConnecting) return <p className="text-red-400">{t.walletDisconnected}</p>;
+    if (!isConnected) return <p className="text-red-400">{t.walletDisconnected}</p>; // Artık 'manualDisconnect'e bakmıyoruz
     if (isLoadingHasVoted) return <p className="text-gray-400">{t.checkVoteStatus}</p>;
     if (isVoteProcessing) return <p className="text-blue-400">{t.voteProcessing}</p>;
     if (isVoteConfirming) return <p className="text-blue-400">{t.voteConfirming}</p>;
@@ -234,7 +238,7 @@ export default function BasePollsPage() {
     return <p className="text-green-400">{t.walletConnected}</p>;
   };
   
-  if (appLoading) {
+  if (appLoading && !initialAutoConnectAttempted) { // 'initialAutoConnectAttempted' kontrolü eklendi
     return <LoadingScreen lang={lang} />;
   }
 
@@ -323,7 +327,6 @@ export default function BasePollsPage() {
         </div>
         {/* --- Profil Menüsü Sonu --- */}
 
-        {/* ... (Geri kalan JSX kodu değişiklik yok) ... */}
         <div className="text-center mb-6 pt-12"> 
           <h1 className="text-3xl font-bold text-base-blue-600">{t.title}</h1>
           <p className="text-muted-foreground mt-1">{t.subtitle}</p>
