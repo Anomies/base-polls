@@ -1,22 +1,25 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 // Gerekli tüm importlar
-import { useAccount, useConnect, useReadContract, useWriteContract, useWaitForTransactionReceipt, useDisconnect } from 'wagmi';
+import { 
+  useAccount, 
+  useConnect, 
+  useReadContract, 
+  useReadContracts, 
+  useWriteContract, 
+  useWaitForTransactionReceipt, 
+  useDisconnect 
+} from 'wagmi';
 
-// HATA DÜZELTME: 'useProfile' importunu kaldırıyoruz
-// import { useProfile } from '@farcaster/auth-kit'; 
-
-// HATA DÜZELTME: Doğru hook'u 'FrameProvider'dan import ediyoruz
 import { useFrameContext } from '~/components/providers/FrameProvider';
-
 import { contractAddress, contractAbi } from '~/lib/abi'; 
 import { Address } from 'viem';
 import { Connector } from '@wagmi/core';
-import Image from 'next/image'; // Profil resmi için
+import Image from 'next/image';
 
-// Dil çevirileri (Aynı kaldı)
+// Dil çevirileri
 const translations = {
   en: {
     title: 'Base Polls',
@@ -28,26 +31,25 @@ const translations = {
       { id: 2, text: 'Layer 3 Solutions' },
       { id: 3, text: 'Real World Assets (RWA)' },
     ],
-    votedMessage: 'Thank you for voting!',
+    votedMessage: 'Thank you for voting! Here are the results:',
     langToggle: 'TR',
-    // Cüzdan Durumları
     connectWallet: 'Connecting Wallet...',
     walletConnected: 'Wallet Connected',
     walletDisconnected: 'Wallet Disconnected. Connect via menu.', 
     checkVoteStatus: 'Loading poll status...',
-    alreadyVoted: 'You have already voted in this poll.',
+    alreadyVoted: 'You have already voted. Results below:',
     notVoted: 'You have not voted in this poll yet.',
     voteSuccess: 'Vote recorded on-chain!',
     voteConfirming: 'Confirming vote on-chain...',
     voteFailed: 'Vote failed. Please try again.',
     voteProcessing: 'Submitting vote...',
     submitVoteButton: 'Submit Vote',
-    // Menü
     profile: 'Profile',
     fid: 'FID',
     disconnect: 'Disconnect',
     connectWalletButton: 'Connect Wallet', 
-    loadingPoll: "Loading today's poll...", 
+    loadingPoll: "Loading today's poll...",
+    votes: 'votes'
   },
   tr: {
     title: 'Base Polls',
@@ -59,26 +61,25 @@ const translations = {
       { id: 2, text: 'Layer 3 Çözümleri' },
       { id: 3, text: 'Gerçek Dünya Varlıkları (RWA)' },
     ],
-    votedMessage: 'Oyunuz alındı, teşekkürler!',
+    votedMessage: 'Oyunuz alındı, teşekkürler! İşte sonuçlar:',
     langToggle: 'EN',
-    // Cüzdan Durumları
     connectWallet: 'Cüzdan Bağlanıyor...',
     walletConnected: 'Cüzdan Bağlandı',
     walletDisconnected: 'Cüzdan bağlı değil. Menüden bağlanın.', 
     checkVoteStatus: 'Anket durumu yükleniyor...',
-    alreadyVoted: 'Bu ankete zaten oy verdiniz.',
+    alreadyVoted: 'Zaten oy verdiniz. Sonuçlar aşağıda:',
     notVoted: 'Bu ankete henüz oy vermediniz.',
     voteSuccess: 'Oy zincire kaydedildi!',
     voteConfirming: 'Oy zincirde onaylanıyor...',
     voteFailed: 'Oylama başarısız. Lütfen tekrar deneyin.',
     voteProcessing: 'Oy gönderiliyor...',
     submitVoteButton: 'Oy Ver',
-    // Menü
     profile: 'Profil',
     fid: 'FID',
     disconnect: 'Bağlantıyı Kes',
     connectWalletButton: 'Cüzdan Bağla',
     loadingPoll: "Günün anketini yüklüyor...",
+    votes: 'oy'
   }
 };
 
@@ -86,7 +87,7 @@ type Language = 'en' | 'tr';
 const CURRENT_POLL_ID = 1;
 type VoteStatus = 'idle' | 'loading' | 'success' | 'failed' | 'confirming' | 'processing';
 
-// Yükleme Ekranı (Değişiklik yok)
+// Yükleme Ekranı
 const LoadingScreen = ({ lang }: { lang: Language }) => (
   <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
     <div className="animate-pulse"> 
@@ -105,19 +106,19 @@ export default function BasePollsPage() {
   const [voteStatus, setVoteStatus] = useState<VoteStatus>('idle');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [initialAutoConnectAttempted, setInitialAutoConnectAttempted] = useState(false);
+  const [manualDisconnect, setManualDisconnect] = useState(false);
 
   const t = translations[lang];
 
-  // --- Cüzdan Hook'ları ---
   const { connect, connectors } = useConnect();
-  const { address, isConnected, isConnecting, connector } = useAccount(); 
+  const { address, isConnected, isConnecting } = useAccount(); 
   const { disconnect } = useDisconnect();
   
-  // HATA DÜZELTME: Doğru hook'u çağırıyoruz
+  // Profil verisini almak için doğru hook
   const frameContext = useFrameContext();
 
-  // --- Sözleşme Hook'ları (Değişiklik yok) ---
-  const { data: hasVoted, isLoading: isLoadingHasVoted } = useReadContract({
+  // 1. KULLANICININ OY DURUMU
+  const { data: hasVoted, isLoading: isLoadingHasVoted, refetch: refetchHasVoted } = useReadContract({
     address: contractAddress,
     abi: contractAbi,
     functionName: 'hasVoted',
@@ -125,7 +126,37 @@ export default function BasePollsPage() {
     query: { enabled: !!address },
   });
 
-  // Yükleme Durumu Effect'i (Değişiklik yok)
+  // 2. TÜM SEÇENEKLERİN OY SAYILARINI ÇEKME
+  const { data: voteCountsData, refetch: refetchVotes } = useReadContracts({
+    contracts: t.options.map((opt) => ({
+      address: contractAddress as Address,
+      abi: contractAbi,
+      functionName: 'getVoteCount',
+      args: [BigInt(CURRENT_POLL_ID), BigInt(opt.id)],
+    })),
+  });
+
+  // 3. YÜZDE HESAPLAMA MANTIĞI
+  const results = useMemo(() => {
+    if (!voteCountsData) return null;
+
+    const counts = voteCountsData.map((res) => (res.status === 'success' ? Number(res.result) : 0));
+    
+    const totalVotes = counts.reduce((a, b) => a + b, 0);
+
+    return t.options.map((opt, index) => {
+      const count = counts[index];
+      const percentage = totalVotes === 0 ? 0 : Math.round((count / totalVotes) * 100);
+      return {
+        ...opt,
+        count,
+        percentage,
+      };
+    });
+  }, [voteCountsData, t.options]);
+
+
+  // Yükleme Durumu Effect'i
   useEffect(() => {
     const isLoading = isConnecting || (isConnected && isLoadingHasVoted);
     if (!isLoading) {
@@ -136,11 +167,11 @@ export default function BasePollsPage() {
     }
   }, [isConnecting, isConnected, isLoadingHasVoted]);
 
-
-  // Cüzdan Bağlama useEffect'i (Değişiklik yok)
+  // Cüzdan Bağlama useEffect'i
   useEffect(() => {
     const autoConnect = async () => {
-      if (!isConnected && !isConnecting && !initialAutoConnectAttempted && connectors.length > 0) {
+      // YALNIZCA KULLANICI MANUEL ÇIKIŞ YAPMADIYSA OTOMATİK BAĞLAN
+      if (!isConnected && !isConnecting && !initialAutoConnectAttempted && !manualDisconnect && connectors.length > 0) {
         setInitialAutoConnectAttempted(true); 
         const farcasterConnector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
         if (farcasterConnector) {
@@ -149,9 +180,9 @@ export default function BasePollsPage() {
       }
     };
     autoConnect();
-  }, [connect, connectors, initialAutoConnectAttempted, isConnected, isConnecting]); 
+  }, [connect, connectors, initialAutoConnectAttempted, isConnected, isConnecting, manualDisconnect]); 
 
-  // Oylama Mantığı (Değişiklik yok)
+  // Oylama İşlemi
   const { data: hash, writeContract, isPending: isVoteProcessing } = useWriteContract();
   const { isLoading: isVoteConfirming, isSuccess: isVoteSuccess } = useWaitForTransactionReceipt({ hash });
 
@@ -159,51 +190,61 @@ export default function BasePollsPage() {
     if (hasVoted || isVoteSuccess || isVoteProcessing || isVoteConfirming) return;
     setSelectedOption(optionId);
   };
+
   const handleSubmitVote = () => {
     if (selectedOption === null || !address) return;
     setVoteStatus('loading');
     writeContract({
-      address: contractAddress,
+      address: contractAddress as Address,
       abi: contractAbi,
       functionName: 'vote',
       args: [BigInt(CURRENT_POLL_ID), BigInt(selectedOption)],
     });
   };
+
+  // İşlem Durumu İzleme
   useEffect(() => {
     if (isVoteProcessing) setVoteStatus('processing');
     else if (isVoteConfirming) setVoteStatus('confirming');
-    else if (isVoteSuccess) setVoteStatus('success');
-  }, [isVoteProcessing, isVoteConfirming, isVoteSuccess]);
+    else if (isVoteSuccess) {
+      setVoteStatus('success');
+      refetchHasVoted();
+      refetchVotes();
+    }
+  }, [isVoteProcessing, isVoteConfirming, isVoteSuccess, refetchHasVoted, refetchVotes]);
 
-  // Menü Fonksiyonları (Değişiklik yok)
+  // Menü Fonksiyonları
   const toggleLanguage = () => {
     setLang(lang === 'en' ? 'tr' : 'en');
   };
+  
   const handleDisconnect = () => {
     disconnect();
+    setManualDisconnect(true); 
     setIsDropdownOpen(false);
   };
+
   const handleConnect = async () => {
     setIsDropdownOpen(false);
     let connector = connectors.find((c: Connector) => c.id === 'injected');
-    if (!connector) {
-      connector = connectors.find((c: Connector) => c.id === 'coinbaseWallet'); 
-    }
-    if (!connector) {
-      connector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
-    }
+    if (!connector) connector = connectors.find((c: Connector) => c.id === 'coinbaseWallet'); 
+    if (!connector) connector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
+    
     if (connector) {
       await connect({ connector }); 
-    } else {
-      console.error("Bağlanacak uygun bir cüzdan konektörü bulunamadı.");
+      setManualDisconnect(false); 
     }
   };
 
-  const hasAlreadyVotedOrIsProcessing = !isConnected || isLoadingHasVoted || isVoteProcessing || isVoteConfirming || isVoteSuccess || hasVoted;
-  const submitButtonDisabled = hasAlreadyVotedOrIsProcessing || selectedOption === null;
+  // Profil verileri (FrameProvider'dan)
+  const user = (frameContext?.context as any)?.user; 
+  const pfpUrl = user?.pfpUrl;
+  const displayName = user?.displayName;
+  const fid = user?.fid;
 
+  // --- RENDER ---
+  const showResults = hasVoted || isVoteSuccess;
 
-  // Durum Mesajı Bileşeni (Değişiklik yok)
   const StatusMessage = () => {
     if (isConnecting) return <p className="text-amber-400">{t.connectWallet}</p>; 
     if (!isConnected) return <p className="text-red-400">{t.walletDisconnected}</p>;
@@ -212,7 +253,6 @@ export default function BasePollsPage() {
     if (isVoteConfirming) return <p className="text-blue-400">{t.voteConfirming}</p>;
     if (isVoteSuccess) return <p className="text-green-400">{t.voteSuccess}</p>;
     if (hasVoted === true) return <p className="text-green-400">{t.alreadyVoted}</p>;
-    if (hasVoted === false) return <p className="text-gray-300">{t.notVoted}</p>;
     return <p className="text-green-400">{t.walletConnected}</p>;
   };
   
@@ -220,27 +260,16 @@ export default function BasePollsPage() {
     return <LoadingScreen lang={lang} />;
   }
 
-  // --- HATA DÜZELTME: Profil verisini 'frameContext'ten alıyoruz ---
-  // FrameProvider'daki 'MiniAppContext' tipine göre veriyi okuyoruz
-  const user = (frameContext?.context as any)?.user; 
-  const pfpUrl = user?.pfpUrl;
-  const displayName = user?.displayName;
-  const fid = user?.fid;
-  // --- HATA DÜZELTME SONU ---
-
-
-  // --- ANA RENDER (Menü Güncellendi) ---
   return (
     <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
       <div className="w-full max-w-md p-6 bg-card rounded-lg border border-border shadow-xl relative">
         
-        {/* --- GÜNCELLENMİŞ PROFİL MENÜSÜ --- */}
+        {/* --- Menü --- */}
         <div className="absolute top-4 right-4">
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
             className="w-10 h-10 rounded-lg bg-secondary text-secondary-foreground flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-base-blue-500"
           >
-            {/* Hamburger İkonu (SVG) */}
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="3" y1="12" x2="21" y2="12"></line>
               <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -250,68 +279,34 @@ export default function BasePollsPage() {
           
           {isDropdownOpen && (
             <div className="absolute top-12 right-0 w-72 bg-card border border-border rounded-lg shadow-lg z-10 py-2">
-              
-              {/* Cüzdan bağlıysa ve profil verisi (fid) varsa */}
               {isConnected && fid && (
                 <div className="px-4 py-3 border-b border-border flex items-center space-x-3">
-                  {/* Profil Resmi */}
                   {pfpUrl && (
-                    <Image 
-                      src={pfpUrl}
-                      alt="PFP"
-                      width={40}
-                      height={40}
-                      className="rounded-full"
-                    />
+                    <Image src={pfpUrl} alt="PFP" width={40} height={40} className="rounded-full" />
                   )}
-                  {/* İsim ve FID */}
                   <div>
                     <p className="font-bold text-base-blue-600 truncate">{displayName || t.profile}</p>
                     <p className="text-sm text-muted-foreground">{t.fid}: {fid}</p>
                   </div>
                 </div>
               )}
-
-              {/* Dil Değiştirme */}
               <div className="px-4 py-3 border-b border-border">
-                <p className="text-sm text-muted-foreground mb-2">Language</p>
                 <div className="flex space-x-2">
-                  <button
-                    onClick={() => { setLang('tr'); setIsDropdownOpen(false); }}
-                    className={`flex-1 p-2 rounded-md text-sm font-medium ${lang === 'tr' ? 'bg-base-blue-600 text-white' : 'bg-secondary text-secondary-foreground'}`}
-                  >
-                    TR Türkçe
-                  </button>
-                  <button
-                    onClick={() => { setLang('en'); setIsDropdownOpen(false); }}
-                    className={`flex-1 p-2 rounded-md text-sm font-medium ${lang === 'en' ? 'bg-base-blue-600 text-white' : 'bg-secondary text-secondary-foreground'}`}
-                  >
-                    EN English
-                  </button>
+                  <button onClick={() => { setLang('tr'); setIsDropdownOpen(false); }} className={`flex-1 p-2 rounded-md text-sm font-medium ${lang === 'tr' ? 'bg-base-blue-600 text-white' : 'bg-secondary text-secondary-foreground'}`}>TR Türkçe</button>
+                  <button onClick={() => { setLang('en'); setIsDropdownOpen(false); }} className={`flex-1 p-2 rounded-md text-sm font-medium ${lang === 'en' ? 'bg-base-blue-600 text-white' : 'bg-secondary text-secondary-foreground'}`}>EN English</button>
                 </div>
               </div>
-              
-              {/* Cüzdan durumuna göre buton */}
               {isConnected ? (
-                <button
-                  onClick={handleDisconnect}
-                  className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-muted flex items-center space-x-2"
-                >
+                <button onClick={handleDisconnect} className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-muted flex items-center space-x-2">
                   <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                   <span>{t.disconnect}</span>
                 </button>
               ) : (
-                <button
-                  onClick={handleConnect}
-                  className="w-full text-left px-4 py-3 text-sm text-green-500 hover:bg-muted"
-                >
-                  {t.connectWalletButton}
-                </button>
+                <button onClick={handleConnect} className="w-full text-left px-4 py-3 text-sm text-green-500 hover:bg-muted">{t.connectWalletButton}</button>
               )}
             </div>
           )}
         </div>
-        {/* --- Profil Menüsü Sonu --- */}
 
         <div className="text-center mb-6 pt-12"> 
           <h1 className="text-3xl font-bold text-base-blue-600">{t.title}</h1>
@@ -322,47 +317,68 @@ export default function BasePollsPage() {
           <StatusMessage />
         </div>
 
+        {/* --- ANKET VEYA SONUÇLAR --- */}
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-card-foreground">{t.question}</h2>
           
-          <div className="flex flex-col space-y-3">
-            {t.options.map((option) => (
-              <button
-                key={option.id}
-                onClick={() => handleSelectOption(option.id)}
-                disabled={hasAlreadyVotedOrIsProcessing} 
-                className={`w-full p-4 text-left font-medium border rounded-lg transition-all
-                           ${selectedOption === option.id 
-                             ? 'bg-base-blue-600 text-white border-base-blue-600 ring-2 ring-base-blue-400' 
-                             : 'bg-secondary text-secondary-foreground border-border'}
-                           ${hasAlreadyVotedOrIsProcessing ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted'}
-                           focus:outline-none focus:ring-2 focus:ring-base-blue-400`}
-              >
-                {option.text}
-              </button>
-            ))}
-          </div>
-
-          <button
-            onClick={handleSubmitVote}
-            disabled={submitButtonDisabled}
-            className={`w-full p-4 mt-4 font-bold text-lg rounded-lg transition-all
-                       ${submitButtonDisabled 
-                         ? 'bg-muted text-muted-foreground cursor-not-allowed'
-                         : 'bg-base-blue-600 text-white hover:bg-base-blue-700'
-                       }
-                       focus:outline-none focus:ring-2 focus:ring-base-blue-400`}
-          >
-            {(isVoteProcessing || isVoteConfirming) 
-              ? t.voteConfirming 
-              : t.submitVoteButton
-            }
-          </button>
-          
-          {isVoteSuccess && (
-            <div className="text-center p-3 mt-4 bg-green-900 text-green-100 border border-green-700 rounded-lg">
-              {t.votedMessage}
+          {/* DURUM A: KULLANICI OY VERMİŞSE -> SONUÇLARI GÖSTER */}
+          {showResults && results ? (
+            <div className="flex flex-col space-y-4">
+              {results.map((result) => (
+                <div key={result.id} className="w-full">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="font-medium text-foreground">{result.text}</span>
+                    <span className="text-muted-foreground">{result.percentage}% ({result.count} {t.votes})</span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-2.5 overflow-hidden">
+                    <div 
+                      className="bg-base-blue-600 h-2.5 rounded-full transition-all duration-1000 ease-out" 
+                      style={{ width: `${result.percentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+              <div className="text-center p-3 mt-4 bg-green-900/20 text-green-400 border border-green-900/50 rounded-lg text-sm">
+                {t.votedMessage}
+              </div>
             </div>
+          ) : (
+            /* DURUM B: KULLANICI OY VERMEMİŞSE -> BUTONLARI GÖSTER */
+            <>
+              <div className="flex flex-col space-y-3">
+                {t.options.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => handleSelectOption(option.id)}
+                    disabled={!isConnected || isVoteProcessing || isVoteConfirming}
+                    className={`w-full p-4 text-left font-medium border rounded-lg transition-all
+                              ${selectedOption === option.id 
+                                ? 'bg-base-blue-600 text-white border-base-blue-600 ring-2 ring-base-blue-400' 
+                                : 'bg-secondary text-secondary-foreground border-border'}
+                              ${(!isConnected || isVoteProcessing) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted'}
+                              focus:outline-none focus:ring-2 focus:ring-base-blue-400`}
+                  >
+                    {option.text}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={handleSubmitVote}
+                disabled={!isConnected || selectedOption === null || isVoteProcessing || isVoteConfirming}
+                className={`w-full p-4 mt-4 font-bold text-lg rounded-lg transition-all
+                          ${(!isConnected || selectedOption === null || isVoteProcessing || isVoteConfirming)
+                            ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                            : 'bg-base-blue-600 text-white hover:bg-base-blue-700'
+                          }
+                          focus:outline-none focus:ring-2 focus:ring-base-blue-400`}
+              >
+                {(isVoteProcessing || isVoteConfirming) 
+                  ? t.voteConfirming 
+                  : t.submitVoteButton
+                }
+              </button>
+            </>
           )}
         </div>
       </div>
