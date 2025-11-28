@@ -13,24 +13,20 @@ import {
   useDisconnect 
 } from 'wagmi';
 
-import { useFrameContext } from '~/components/providers/FrameProvider';
-import { contractAddress, contractAbi } from '~/lib/abi'; 
+import { useFrameContext } from '../components/providers/FrameProvider';
+import { contractAddress, contractAbi } from '../lib/abi'; 
 import { Address } from 'viem';
 import { Connector } from '@wagmi/core';
 import Image from 'next/image';
 
-// Dil çevirileri
+// YENİ: Anket verilerini ve fonksiyonunu import ediyoruz
+import { getDailyPoll, PollData } from '../lib/polls';
+
+// Dil çevirileri (Statik metinler için)
 const translations = {
   en: {
     title: 'Base Polls',
-    subtitle: 'Vote on today\'s poll!',
-    question: 'What do you think will be the most important trend for the Base ecosystem in 2025?',
-    options: [
-      { id: 0, text: 'Decentralized Social (SocialFi)' },
-      { id: 1, text: 'On-chain Gaming' },
-      { id: 2, text: 'Layer 3 Solutions' },
-      { id: 3, text: 'Real World Assets (RWA)' },
-    ],
+    subtitle: 'Daily Crypto & Base Ecosystem Polls', // Güncellendi
     votedMessage: 'Thank you for voting! Here are the results:',
     langToggle: 'TR',
     connectWallet: 'Connecting Wallet...',
@@ -53,14 +49,7 @@ const translations = {
   },
   tr: {
     title: 'Base Polls',
-    subtitle: 'Günün anketine katılın!',
-    question: 'Sizce 2025\'te Base ekosistemi için en önemli gelişme ne olacak?',
-    options: [
-      { id: 0, text: 'Merkeziyetsiz Sosyal Medya (SocialFi)' },
-      { id: 1, text: 'Zincir Üstü Oyun (On-chain Gaming)' },
-      { id: 2, text: 'Layer 3 Çözümleri' },
-      { id: 3, text: 'Gerçek Dünya Varlıkları (RWA)' },
-    ],
+    subtitle: 'Günlük Kripto ve Base Ekosistem Anketleri', // Güncellendi
     votedMessage: 'Oyunuz alındı, teşekkürler! İşte sonuçlar:',
     langToggle: 'EN',
     connectWallet: 'Cüzdan Bağlanıyor...',
@@ -84,10 +73,8 @@ const translations = {
 };
 
 type Language = 'en' | 'tr';
-const CURRENT_POLL_ID = 1;
 type VoteStatus = 'idle' | 'loading' | 'success' | 'failed' | 'confirming' | 'processing';
 
-// Yükleme Ekranı
 const LoadingScreen = ({ lang }: { lang: Language }) => (
   <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
     <div className="animate-pulse"> 
@@ -108,56 +95,73 @@ export default function BasePollsPage() {
   const [initialAutoConnectAttempted, setInitialAutoConnectAttempted] = useState(false);
   const [manualDisconnect, setManualDisconnect] = useState(false);
 
+  // YENİ STATE: Günlük anket verisini tutacak
+  const [dailyPoll, setDailyPoll] = useState<PollData | null>(null);
+
   const t = translations[lang];
+
+  // YENİ: Sayfa yüklendiğinde bugünün anketini getir
+  useEffect(() => {
+    const poll = getDailyPoll();
+    setDailyPoll(poll);
+  }, []);
 
   const { connect, connectors } = useConnect();
   const { address, isConnected, isConnecting } = useAccount(); 
   const { disconnect } = useDisconnect();
   
-  // Profil verisini almak için doğru hook
   const frameContext = useFrameContext();
 
-  // 1. KULLANICININ OY DURUMU
+  // 1. KULLANICININ OY DURUMU (Dinamik ID ile)
+  // dailyPoll?.id var mı kontrol et, yoksa 0 kullan (hata vermemesi için)
+  const pollId = dailyPoll ? BigInt(dailyPoll.id) : BigInt(0);
+
   const { data: hasVoted, isLoading: isLoadingHasVoted, refetch: refetchHasVoted } = useReadContract({
-    address: contractAddress,
+    address: contractAddress as Address,
     abi: contractAbi,
     functionName: 'hasVoted',
-    args: [BigInt(CURRENT_POLL_ID), address as Address],
-    query: { enabled: !!address },
+    args: [pollId, address as Address],
+    query: { enabled: !!address && !!dailyPoll }, // Anket yüklendiyse sorgula
   });
 
   // 2. TÜM SEÇENEKLERİN OY SAYILARINI ÇEKME
   const { data: voteCountsData, refetch: refetchVotes } = useReadContracts({
-    contracts: t.options.map((opt) => ({
+    contracts: dailyPoll?.options[lang].map((_, index) => ({
       address: contractAddress as Address,
       abi: contractAbi,
       functionName: 'getVoteCount',
-      args: [BigInt(CURRENT_POLL_ID), BigInt(opt.id)],
-    })),
+      args: [pollId, BigInt(index)],
+    })) || [], // Eğer dailyPoll yoksa boş dizi döndür
+    query: { enabled: !!dailyPoll }, // Sadece anket verisi varsa çalıştır
   });
 
   // 3. YÜZDE HESAPLAMA MANTIĞI
   const results = useMemo(() => {
-    if (!voteCountsData) return null;
+    if (!voteCountsData || !dailyPoll) return null;
 
     const counts = voteCountsData.map((res) => (res.status === 'success' ? Number(res.result) : 0));
-    
     const totalVotes = counts.reduce((a, b) => a + b, 0);
 
-    return t.options.map((opt, index) => {
-      const count = counts[index];
+    // Seçenek metinlerini mevcut dile göre al
+    const currentOptions = dailyPoll.options[lang];
+
+    return currentOptions.map((text, index) => {
+      const count = counts[index] || 0;
       const percentage = totalVotes === 0 ? 0 : Math.round((count / totalVotes) * 100);
       return {
-        ...opt,
+        id: index,
+        text,
         count,
         percentage,
       };
     });
-  }, [voteCountsData, t.options]);
-
+  }, [voteCountsData, dailyPoll, lang]);
 
   // Yükleme Durumu Effect'i
   useEffect(() => {
+    // Anket verisi henüz yüklenmediyse bekle
+    if (!dailyPoll) return;
+
     const isLoading = isConnecting || (isConnected && isLoadingHasVoted);
     if (!isLoading) {
       const timer = setTimeout(() => {
@@ -165,12 +169,11 @@ export default function BasePollsPage() {
       }, 1500); 
       return () => clearTimeout(timer);
     }
-  }, [isConnecting, isConnected, isLoadingHasVoted]);
+  }, [isConnecting, isConnected, isLoadingHasVoted, dailyPoll]);
 
-  // Cüzdan Bağlama useEffect'i
+  // Cüzdan Bağlama
   useEffect(() => {
     const autoConnect = async () => {
-      // YALNIZCA KULLANICI MANUEL ÇIKIŞ YAPMADIYSA OTOMATİK BAĞLAN
       if (!isConnected && !isConnecting && !initialAutoConnectAttempted && !manualDisconnect && connectors.length > 0) {
         setInitialAutoConnectAttempted(true); 
         const farcasterConnector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
@@ -192,17 +195,16 @@ export default function BasePollsPage() {
   };
 
   const handleSubmitVote = () => {
-    if (selectedOption === null || !address) return;
+    if (selectedOption === null || !address || !dailyPoll) return;
     setVoteStatus('loading');
     writeContract({
       address: contractAddress as Address,
       abi: contractAbi,
       functionName: 'vote',
-      args: [BigInt(CURRENT_POLL_ID), BigInt(selectedOption)],
+      args: [BigInt(dailyPoll.id), BigInt(selectedOption)],
     });
   };
 
-  // İşlem Durumu İzleme
   useEffect(() => {
     if (isVoteProcessing) setVoteStatus('processing');
     else if (isVoteConfirming) setVoteStatus('confirming');
@@ -213,36 +215,30 @@ export default function BasePollsPage() {
     }
   }, [isVoteProcessing, isVoteConfirming, isVoteSuccess, refetchHasVoted, refetchVotes]);
 
-  // Menü Fonksiyonları
   const toggleLanguage = () => {
     setLang(lang === 'en' ? 'tr' : 'en');
   };
-  
   const handleDisconnect = () => {
     disconnect();
     setManualDisconnect(true); 
     setIsDropdownOpen(false);
   };
-
   const handleConnect = async () => {
     setIsDropdownOpen(false);
     let connector = connectors.find((c: Connector) => c.id === 'injected');
     if (!connector) connector = connectors.find((c: Connector) => c.id === 'coinbaseWallet'); 
     if (!connector) connector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
-    
     if (connector) {
       await connect({ connector }); 
       setManualDisconnect(false); 
     }
   };
 
-  // Profil verileri (FrameProvider'dan)
   const user = (frameContext?.context as any)?.user; 
   const pfpUrl = user?.pfpUrl;
   const displayName = user?.displayName;
   const fid = user?.fid;
 
-  // --- RENDER ---
   const showResults = hasVoted || isVoteSuccess;
 
   const StatusMessage = () => {
@@ -259,6 +255,9 @@ export default function BasePollsPage() {
   if (appLoading && !initialAutoConnectAttempted) { 
     return <LoadingScreen lang={lang} />;
   }
+
+  // Eğer anket verisi yüklenmediyse (çok nadir)
+  if (!dailyPoll) return null;
 
   return (
     <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
@@ -311,17 +310,20 @@ export default function BasePollsPage() {
         <div className="text-center mb-6 pt-12"> 
           <h1 className="text-3xl font-bold text-base-blue-600">{t.title}</h1>
           <p className="text-muted-foreground mt-1">{t.subtitle}</p>
+          {/* <p className="text-xs text-muted-foreground mt-2 opacity-60">Poll ID: {dailyPoll.id}</p> */}
         </div>
 
         <div className="text-center p-3 mb-4 bg-secondary rounded-lg border border-border">
           <StatusMessage />
         </div>
 
-        {/* --- ANKET VEYA SONUÇLAR --- */}
+        {/* --- DİNAMİK ANKET SORUSU VE SEÇENEKLER --- */}
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-card-foreground">{t.question}</h2>
+          <h2 className="text-lg font-semibold text-card-foreground">
+            {/* Soruyu dailyPoll verisinden alıyoruz */}
+            {dailyPoll.question[lang]}
+          </h2>
           
-          {/* DURUM A: KULLANICI OY VERMİŞSE -> SONUÇLARI GÖSTER */}
           {showResults && results ? (
             <div className="flex flex-col space-y-4">
               {results.map((result) => (
@@ -343,22 +345,22 @@ export default function BasePollsPage() {
               </div>
             </div>
           ) : (
-            /* DURUM B: KULLANICI OY VERMEMİŞSE -> BUTONLARI GÖSTER */
             <>
               <div className="flex flex-col space-y-3">
-                {t.options.map((option) => (
+                {/* Seçenekleri dailyPoll verisinden alıyoruz */}
+                {dailyPoll.options[lang].map((optionText, index) => (
                   <button
-                    key={option.id}
-                    onClick={() => handleSelectOption(option.id)}
+                    key={index}
+                    onClick={() => handleSelectOption(index)}
                     disabled={!isConnected || isVoteProcessing || isVoteConfirming}
                     className={`w-full p-4 text-left font-medium border rounded-lg transition-all
-                              ${selectedOption === option.id 
+                              ${selectedOption === index 
                                 ? 'bg-base-blue-600 text-white border-base-blue-600 ring-2 ring-base-blue-400' 
                                 : 'bg-secondary text-secondary-foreground border-border'}
                               ${(!isConnected || isVoteProcessing) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted'}
                               focus:outline-none focus:ring-2 focus:ring-base-blue-400`}
                   >
-                    {option.text}
+                    {optionText}
                   </button>
                 ))}
               </div>
