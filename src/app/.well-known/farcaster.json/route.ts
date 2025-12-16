@@ -42,7 +42,7 @@ export async function GET() {
         ],
         "canonicalDomain": "https://base-polls.vercel.app/",
         "noindex": false,
-        "tags": ["base", "baseapp", "miniapp", "poll", "base polls"]
+        "tags": ["base", "baseapp", "miniapp", "poll", "basepolls"]
       },
       "baseBuilder": {
         "allowedAddresses": ["0x530a7dd97DDFB463bEb8f918852a9870f94d598f"],

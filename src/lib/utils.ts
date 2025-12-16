@@ -9,7 +9,7 @@ export const METADATA = {
   iconImageUrl: 'https://i.imgur.com/brcnijg.png',
   homeUrl: process.env.NEXT_PUBLIC_URL ?? "https://base-polls.vercel.app/",
   splashBackgroundColor: "#FFFFFF",
-  primaryCategories: ["primaryCategories.polls"]
+  primaryCategory: ["primaryCategories.social"]
 }
 
 export function cn(...inputs: ClassValue[]) {
