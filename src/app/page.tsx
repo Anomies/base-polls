@@ -19,16 +19,9 @@ import { contractAddress, contractAbi } from '../lib/abi';
 import { Address } from 'viem';
 import { Connector } from '@wagmi/core';
 import Image from 'next/image';
-import { Metadata } from 'next';
 
 // Anket verilerini import ediyoruz
 import { getDailyPoll, PollData } from '../lib/polls';
-
-export const metadata: Metadata = {
-  other: {
-    'base:app_id': '694117afd77c069a945bdf4d',
-  },
-};
 
 // Dil çevirileri
 const translations = {
