@@ -26,7 +26,7 @@ export default function SuggestionModal({ isOpen, onClose, translations }: Sugge
     const subject = encodeURIComponent("Base Polls: New Question Suggestion");
     const body = encodeURIComponent(`Question: ${question}\n\nOptions: ${options}\n\nSubmitted by: ${user?.username || address}`);
     // E-posta adresinizi buraya yazın
-    window.location.href = `mailto:admin@basepolls.xyz?subject=${subject}&body=${body}`;
+    window.location.href = `mailto:basepolls@protonmail.com?subject=${subject}&body=${body}`;
     
     onClose();
   };
