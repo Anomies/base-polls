@@ -1,26 +1,26 @@
 Base Polls 🗳️
 
-Base blok zinciri üzerinde çalışan, topluluk odaklı, günlük bir oylama uygulaması (Mini App). Kullanıcılar Farcaster veya harici cüzdanlarıyla bağlanarak her gün yeni bir ankete katılabilir ve sonuçları şeffaf bir şekilde on-chain (zincir üstü) görebilirler.
+A community-driven, daily polling application (Mini App) running on the Base blockchain. Users can connect with Farcaster or external wallets to participate in a new poll every day and view transparent, immutable results on-chain.
 
-🌟 Özellikler
+🌟 Features
 
-Dinamik Günlük Anketler: Her gün UTC gece yarısında otomatik olarak yeni bir soru ve şıklar sunulur.
+Dynamic Daily Polls: A new question and options are presented automatically every day at midnight UTC.
 
-On-Chain Oylama: Tüm oylar Base Mainnet üzerinde güvenli ve değiştirilemez bir şekilde saklanır.
+On-Chain Voting: All votes are securely and immutably stored on the Base Mainnet.
 
-Farcaster Entegrasyonu: Farcaster (Warpcast) içinde sorunsuz çalışan bir Mini App deneyimi sunar.
+Farcaster Integration: Offers a seamless Mini App experience within Farcaster (Warpcast).
 
-Profil Menüsü: Kullanıcıların Farcaster profilini (PFP, İsim, FID) ve cüzdan adresini gösterir.
+Profile Menu: Displays users' Farcaster profile (PFP, Name, FID) and wallet address.
 
-Çoklu Dil Desteği: Türkçe (TR) ve İngilizce (EN) dil seçenekleri mevcuttur.
+Multi-Language Support: Available in Turkish (TR) and English (EN).
 
-Soru Öneri Sistemi: Kullanıcıların topluluğa yeni soru fikirleri sunabilmesi için entegre bir form.
+Poll Suggestion System: An integrated form for users to submit new poll ideas to the community.
 
-Optimistic UI: Oylama yapıldığında arayüz anında güncellenir, kullanıcıyı bekletmez.
+Optimistic UI: The interface updates instantly when a vote is cast, eliminating wait times for the user.
 
-Akıllı Cüzdan Bağlantısı: Farcaster, MetaMask, Coinbase Wallet gibi çeşitli cüzdanları destekler.
+Smart Wallet Connection: Supports various wallets such as Farcaster, MetaMask, and Coinbase Wallet.
 
-🛠️ Teknolojiler
+🛠️ Technologies
 
 Framework: Next.js (App Router)
 
@@ -28,66 +28,66 @@ Blockchain SDK: Wagmi & Viem
 
 Farcaster SDK: @farcaster/auth-kit & @farcaster/miniapp-sdk
 
-Stil: Tailwind CSS
+Styling: Tailwind CSS
 
 Smart Contract: Solidity (Base Mainnet)
 
-🚀 Kurulum ve Çalıştırma
+🚀 Installation and Running
 
-Projeyi yerel ortamınızda çalıştırmak için aşağıdaki adımları izleyin:
+Follow the steps below to run the project in your local environment:
 
-1. Depoyu Klonlayın
+1. Clone the Repository
 
-git clone [https://github.com/KULLANICI_ADI/base-polls.git](https://github.com/KULLANICI_ADI/base-polls.git)
+git clone [https://github.com/USERNAME/base-polls.git](https://github.com/USERNAME/base-polls.git)
 cd base-polls
 
 
-2. Bağımlılıkları Yükleyin
+2. Install Dependencies
 
 npm install
 
 
-3. Ortam Değişkenlerini Ayarlayın
+3. Set Up Environment Variables
 
-Kök dizinde .env adında bir dosya oluşturun ve gerekli anahtarları ekleyin:
+Create a file named .env in the root directory and add the necessary keys:
 
-# Neynar API Key (Farcaster verileri için)
+# Neynar API Key (for Farcaster data)
 NEYNAR_API_KEY=YOUR_NEYNAR_API_KEY
 
-# WalletConnect Project ID (Wagmi için)
+# WalletConnect Project ID (for Wagmi)
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=YOUR_PROJECT_ID
 
-# Uygulama URL'i (Localhost veya Canlı URL)
+# App URL (Localhost or Live URL)
 NEXT_PUBLIC_HOST=http://localhost:3000
 
 
-4. Uygulamayı Başlatın
+4. Start the Application
 
 npm run dev
 
 
-Tarayıcınızda http://localhost:3000 adresine giderek uygulamayı görüntüleyebilirsiniz.
+You can view the application by navigating to http://localhost:3000 in your browser.
 
-📜 Akıllı Sözleşme (Smart Contract)
+📜 Smart Contract
 
-Uygulamanın kullandığı akıllı sözleşme Polls.sol, oyları ve anket durumlarını yönetir.
+The Polls.sol smart contract used by the application manages votes and poll states.
 
-Ağ: Base Mainnet
+Network: Base Mainnet
 
-Kontrat Adresi: src/lib/abi.ts dosyasında güncel adresi bulabilirsiniz.
+Contract Address: You can find the current address in the src/lib/abi.ts file.
 
-🤝 Katkıda Bulunma
+🤝 Contributing
 
-Bu depoyu fork'layın.
+Fork this repository.
 
-Yeni bir özellik dalı (feature branch) oluşturun (git checkout -b yeni-ozellik).
+Create a new feature branch (git checkout -b new-feature).
 
-Değişikliklerinizi yapın ve commit'leyin (git commit -m 'Yeni özellik eklendi').
+Make your changes and commit (git commit -m 'Added new feature').
 
-Dalınızı push'layın (git push origin yeni-ozellik).
+Push your branch (git push origin new-feature).
 
-Bir Pull Request (PR) oluşturun.
+Create a Pull Request (PR).
 
-📄 Lisans
+📄 License
 
-Bu proje MIT Lisansı ile lisanslanmıştır.
+This project is licensed under the MIT License.
