@@ -40,12 +40,12 @@ export async function GET() {
           "eip155:8453",
           "eip155:10"
         ],
-        "canonicalDomain": "frames-v2-demo-lilac.vercel.app",
+        "canonicalDomain": "https://base-polls.vercel.app/",
         "noindex": false,
-        "tags": ["base", "baseapp", "miniapp", "demo", "basepay"]
+        "tags": ["base", "baseapp", "miniapp", "poll", "base polls"]
       },
       "baseBuilder": {
-        "allowedAddresses": ["0x8342A48694A74044116F330db5050a267b28dD85"],
+        "allowedAddresses": ["0x530a7dd97DDFB463bEb8f918852a9870f94d598f"],
       }
   };
 
