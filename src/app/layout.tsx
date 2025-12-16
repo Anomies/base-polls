@@ -6,12 +6,36 @@ import { Providers } from "~/app/providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// Base'in istediği metadata ayarlarını buraya ekliyoruz
+// Base'in istediği metadata ve OG Image ayarları
 export const metadata: Metadata = {
   title: "Base Polls",
   description: "Daily polls for the Base ecosystem.",
   other: {
-    'base:app_id': '694117afd77c069a945bdf4d', // Sizin App ID'niz
+    'base:app_id': '694117afd77c069a945bdf4d', 
+  },
+  // YENİ: Open Graph (Facebook, Discord, LinkedIn vb.) ayarları
+  openGraph: {
+    title: "Base Polls",
+    description: "Daily polls for the Base ecosystem.",
+    url: "https://base-polls.vercel.app", // Kendi canlı URL'inizi buraya yazın
+    siteName: "Base Polls",
+    images: [
+      {
+        url: "/opengraph-image.png", // Dosya yolunu açıkça belirtiyoruz
+        width: 1200,
+        height: 630,
+        alt: "Base Polls Preview",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  // YENİ: Twitter Card ayarları
+  twitter: {
+    card: "summary_large_image",
+    title: "Base Polls",
+    description: "Daily polls for the Base ecosystem.",
+    images: ["/opengraph-image.png"], // Dosya yolunu açıkça belirtiyoruz
   },
 };
 
@@ -21,12 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    // 1. Dili 'en' olarak ayarlıyoruz
-    // 2. Karanlık modu zorunlu kılmak için <html> etiketine 'dark' class'ını ekliyoruz
     <html lang="en" className="dark">
-      {/* 3. <body> etiketi, tailwind.config.js'deki 'bg-background' 
-           CSS değişkenini otomatik olarak alacaktır. 
-      */}
       <body className={inter.className}> 
         <Providers>
           {children}
