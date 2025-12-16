@@ -13,20 +13,21 @@ import {
   useDisconnect 
 } from 'wagmi';
 
+// Göreceli yollar kullanıyoruz
 import { useFrameContext } from '../components/providers/FrameProvider';
 import { contractAddress, contractAbi } from '../lib/abi'; 
 import { Address } from 'viem';
 import { Connector } from '@wagmi/core';
 import Image from 'next/image';
 
-// YENİ: Anket verilerini ve fonksiyonunu import ediyoruz
+// Anket verilerini import ediyoruz
 import { getDailyPoll, PollData } from '../lib/polls';
 
-// Dil çevirileri (Statik metinler için)
+// Dil çevirileri
 const translations = {
   en: {
     title: 'Base Polls',
-    subtitle: 'Daily Crypto & Base Ecosystem Polls', // Güncellendi
+    subtitle: 'Daily Crypto & Base Ecosystem Polls',
     votedMessage: 'Thank you for voting! Here are the results:',
     langToggle: 'TR',
     connectWallet: 'Connecting Wallet...',
@@ -49,7 +50,7 @@ const translations = {
   },
   tr: {
     title: 'Base Polls',
-    subtitle: 'Günlük Kripto ve Base Ekosistem Anketleri', // Güncellendi
+    subtitle: 'Günlük Kripto ve Base Ekosistem Anketleri',
     votedMessage: 'Oyunuz alındı, teşekkürler! İşte sonuçlar:',
     langToggle: 'EN',
     connectWallet: 'Cüzdan Bağlanıyor...',
@@ -101,7 +102,7 @@ export default function BasePollsPage() {
 
   const t = translations[lang];
 
-  // YENİ: Sayfa yüklendiğinde bugünün anketini getir
+  // Sayfa yüklendiğinde bugünün anketini getir
   useEffect(() => {
     const poll = getDailyPoll();
     setDailyPoll(poll);
@@ -113,8 +114,7 @@ export default function BasePollsPage() {
   
   const frameContext = useFrameContext();
 
-  // 1. KULLANICININ OY DURUMU (Dinamik ID ile)
-  // dailyPoll?.id var mı kontrol et, yoksa 0 kullan (hata vermemesi için)
+  // 1. KULLANICININ OY DURUMU
   const pollId = dailyPoll ? BigInt(dailyPoll.id) : BigInt(0);
 
   const { data: hasVotedData, isLoading: isLoadingHasVoted, refetch: refetchHasVoted } = useReadContract({
@@ -122,7 +122,7 @@ export default function BasePollsPage() {
     abi: contractAbi,
     functionName: 'hasVoted',
     args: [pollId, address as Address],
-    query: { enabled: !!address && !!dailyPoll }, // Anket yüklendiyse sorgula
+    query: { enabled: !!address && !!dailyPoll },
   });
 
   // Oylama işlemi durumu
@@ -133,15 +133,14 @@ export default function BasePollsPage() {
   const hasVoted = hasVotedData || isVoteSuccess;
 
   // 2. TÜM SEÇENEKLERİN OY SAYILARINI ÇEKME
-  // Seçenek sayısı dinamik olabileceği için map içinde güvenli bir şekilde oluşturuyoruz
   const { data: voteCountsData, refetch: refetchVotes } = useReadContracts({
     contracts: dailyPoll?.options[lang].map((_, index) => ({
       address: contractAddress as Address,
       abi: contractAbi,
       functionName: 'getVoteCount',
       args: [pollId, BigInt(index)],
-    })) || [], // Eğer dailyPoll yoksa boş dizi döndür
-    query: { enabled: !!dailyPoll }, // Sadece anket verisi varsa çalıştır
+    })) || [], 
+    query: { enabled: !!dailyPoll },
   });
 
   // 3. YÜZDE HESAPLAMA MANTIĞI
@@ -150,17 +149,14 @@ export default function BasePollsPage() {
 
     let counts = voteCountsData.map((res) => (res.status === 'success' ? Number(res.result) : 0));
     
-    // OPTIMISTIC UPDATE: Oy verdiysek ve veri henüz gelmediyse manuel ekle
+    // OPTIMISTIC UPDATE
     if (isVoteSuccess && selectedOption !== null && !hasVotedData) {
       counts[selectedOption] = (counts[selectedOption] || 0) + 1;
     }
 
     const totalVotes = counts.reduce((a, b) => a + b, 0);
 
-    // Seçenek metinlerini mevcut dile göre al
-    const currentOptions = dailyPoll.options[lang];
-
-    return currentOptions.map((text, index) => {
+    return dailyPoll.options[lang].map((text, index) => {
       const count = counts[index] || 0;
       const percentage = totalVotes === 0 ? 0 : Math.round((count / totalVotes) * 100);
       return {
@@ -172,11 +168,10 @@ export default function BasePollsPage() {
     });
   }, [voteCountsData, dailyPoll, lang, isVoteSuccess, selectedOption, hasVotedData]);
 
-  // Yükleme Durumu Effect'i
-  useEffect(() => {
-    // Anket verisi henüz yüklenmediyse bekle
-    if (!dailyPoll) return;
 
+  // Yükleme Durumu
+  useEffect(() => {
+    if (!dailyPoll) return;
     const isLoading = isConnecting || (isConnected && isLoadingHasVoted);
     if (!isLoading) {
       const timer = setTimeout(() => {
@@ -236,11 +231,16 @@ export default function BasePollsPage() {
   const toggleLanguage = () => {
     setLang(lang === 'en' ? 'tr' : 'en');
   };
+  
+  // DÜZELTME: Bağlantıyı kesince, UI'ın da sıfırlanmasını istiyoruz.
   const handleDisconnect = () => {
     disconnect();
     setManualDisconnect(true); 
     setIsDropdownOpen(false);
+    setSelectedOption(null); // Seçimi temizle
+    setVoteStatus('idle');   // Oy durumunu temizle
   };
+
   const handleConnect = async () => {
     setIsDropdownOpen(false);
     let connector = connectors.find((c: Connector) => c.id === 'injected');
@@ -253,14 +253,15 @@ export default function BasePollsPage() {
     }
   };
 
-  // Profil verileri
+  // Profil verileri (FrameProvider'dan)
   const user = (frameContext?.context as any)?.user; 
   const pfpUrl = user?.pfpUrl;
   const displayName = user?.displayName;
   const fid = user?.fid;
 
   // --- RENDER ---
-  const showResults = hasVoted; // hasVoted artık optimistic değeri de içeriyor
+  // Cüzdan bağlı değilse (isConnected: false), sonuçları ASLA gösterme.
+  const showResults = isConnected && (hasVoted);
 
   const StatusMessage = () => {
     if (isConnecting) return <p className="text-amber-400">{t.connectWallet}</p>; 
@@ -345,6 +346,7 @@ export default function BasePollsPage() {
             {dailyPoll.question[lang]}
           </h2>
           
+          {/* EKRAN KONTROLÜ: Cüzdan bağlıysa ve oy verdiyse sonuçları göster */}
           {showResults && results ? (
             <div className="flex flex-col space-y-4">
               {results.map((result) => (
