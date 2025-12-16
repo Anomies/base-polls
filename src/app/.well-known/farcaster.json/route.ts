@@ -40,7 +40,7 @@ export async function GET() {
           "eip155:8453",
           "eip155:10"
         ],
-        "canonicalDomain": "https://base-polls.vercel.app/",
+        "canonicalDomain": "base-polls.vercel.app",
         "noindex": false,
         "tags": ["base", "baseapp", "miniapp", "poll", "basepolls"]
       },
