@@ -46,7 +46,9 @@ const translations = {
     disconnect: 'Disconnect',
     connectWalletButton: 'Connect Wallet', 
     loadingPoll: "Loading today's poll...",
-    votes: 'votes'
+    votes: 'votes',
+    shareResult: 'Share on Warpcast',
+    shareText: 'I just voted on Base Polls! Check it out:',
   },
   tr: {
     title: 'Base Polls',
@@ -69,7 +71,9 @@ const translations = {
     disconnect: 'Bağlantıyı Kes',
     connectWalletButton: 'Cüzdan Bağla',
     loadingPoll: "Günün anketini yüklüyor...",
-    votes: 'oy'
+    votes: 'oy',
+    shareResult: 'Warpcast\'te Paylaş',
+    shareText: 'Base Polls\'da oyumu kullandım! Sen de katıl:',
   }
 };
 
@@ -102,7 +106,7 @@ export default function BasePollsPage() {
 
   const t = translations[lang];
 
-  // Sayfa yüklendiğinde bugünün anketini getir
+  // YENİ: Sayfa yüklendiğinde bugünün anketini getir
   useEffect(() => {
     const poll = getDailyPoll();
     setDailyPoll(poll);
@@ -114,7 +118,8 @@ export default function BasePollsPage() {
   
   const frameContext = useFrameContext();
 
-  // 1. KULLANICININ OY DURUMU
+  // 1. KULLANICININ OY DURUMU (Dinamik ID ile)
+  // dailyPoll?.id var mı kontrol et, yoksa 0 kullan (hata vermemesi için)
   const pollId = dailyPoll ? BigInt(dailyPoll.id) : BigInt(0);
 
   const { data: hasVotedData, isLoading: isLoadingHasVoted, refetch: refetchHasVoted } = useReadContract({
@@ -122,7 +127,7 @@ export default function BasePollsPage() {
     abi: contractAbi,
     functionName: 'hasVoted',
     args: [pollId, address as Address],
-    query: { enabled: !!address && !!dailyPoll },
+    query: { enabled: !!address && !!dailyPoll }, // Anket yüklendiyse sorgula
   });
 
   // Oylama işlemi durumu
@@ -133,14 +138,15 @@ export default function BasePollsPage() {
   const hasVoted = hasVotedData || isVoteSuccess;
 
   // 2. TÜM SEÇENEKLERİN OY SAYILARINI ÇEKME
+  // Seçenek sayısı dinamik olabileceği için map içinde güvenli bir şekilde oluşturuyoruz
   const { data: voteCountsData, refetch: refetchVotes } = useReadContracts({
     contracts: dailyPoll?.options[lang].map((_, index) => ({
       address: contractAddress as Address,
       abi: contractAbi,
       functionName: 'getVoteCount',
       args: [pollId, BigInt(index)],
-    })) || [], 
-    query: { enabled: !!dailyPoll },
+    })) || [], // Eğer dailyPoll yoksa boş dizi döndür
+    query: { enabled: !!dailyPoll }, // Sadece anket verisi varsa çalıştır
   });
 
   // 3. YÜZDE HESAPLAMA MANTIĞI
@@ -149,14 +155,17 @@ export default function BasePollsPage() {
 
     let counts = voteCountsData.map((res) => (res.status === 'success' ? Number(res.result) : 0));
     
-    // OPTIMISTIC UPDATE
+    // OPTIMISTIC UPDATE: Oy verdiysek ve veri henüz gelmediyse manuel ekle
     if (isVoteSuccess && selectedOption !== null && !hasVotedData) {
       counts[selectedOption] = (counts[selectedOption] || 0) + 1;
     }
 
     const totalVotes = counts.reduce((a, b) => a + b, 0);
 
-    return dailyPoll.options[lang].map((text, index) => {
+    // Seçenek metinlerini mevcut dile göre al
+    const currentOptions = dailyPoll.options[lang];
+
+    return currentOptions.map((text, index) => {
       const count = counts[index] || 0;
       const percentage = totalVotes === 0 ? 0 : Math.round((count / totalVotes) * 100);
       return {
@@ -168,10 +177,11 @@ export default function BasePollsPage() {
     });
   }, [voteCountsData, dailyPoll, lang, isVoteSuccess, selectedOption, hasVotedData]);
 
-
-  // Yükleme Durumu
+  // Yükleme Durumu Effect'i
   useEffect(() => {
+    // Anket verisi henüz yüklenmediyse bekle
     if (!dailyPoll) return;
+
     const isLoading = isConnecting || (isConnected && isLoadingHasVoted);
     if (!isLoading) {
       const timer = setTimeout(() => {
@@ -232,7 +242,6 @@ export default function BasePollsPage() {
     setLang(lang === 'en' ? 'tr' : 'en');
   };
   
-  // DÜZELTME: Bağlantıyı kesince, UI'ın da sıfırlanmasını istiyoruz.
   const handleDisconnect = () => {
     disconnect();
     setManualDisconnect(true); 
@@ -252,6 +261,21 @@ export default function BasePollsPage() {
       setManualDisconnect(false); 
     }
   };
+
+  // --- YENİ: PAYLAŞIM FONKSİYONU ---
+  const handleShare = () => {
+    // Uygulamanızın canlı URL'sini buraya yazın (veya window.location.href kullanın)
+    const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://base-polls.vercel.app';
+    const text = encodeURIComponent(t.shareText);
+    const url = encodeURIComponent(appUrl);
+    
+    // Warpcast paylaşım linki
+    const shareLink = `https://warpcast.com/~/compose?text=${text}&embeds[]=${url}`;
+    
+    // Yeni sekmede aç
+    window.open(shareLink, '_blank');
+  };
+  // ---------------------------------
 
   // Profil verileri (FrameProvider'dan)
   const user = (frameContext?.context as any)?.user; 
@@ -332,7 +356,7 @@ export default function BasePollsPage() {
         <div className="text-center mb-6 pt-12"> 
           <h1 className="text-3xl font-bold text-base-blue-600">{t.title}</h1>
           <p className="text-muted-foreground mt-1">{t.subtitle}</p>
-          {/* <p className="text-xs text-muted-foreground mt-2 opacity-60">Poll ID: {dailyPoll.id}</p> */}
+          <p className="text-xs text-muted-foreground mt-2 opacity-60">Poll ID: {dailyPoll.id}</p>
         </div>
 
         <div className="text-center p-3 mb-4 bg-secondary rounded-lg border border-border">
@@ -366,6 +390,19 @@ export default function BasePollsPage() {
               <div className="text-center p-3 mt-4 bg-green-900/20 text-green-400 border border-green-900/50 rounded-lg text-sm">
                 {t.votedMessage}
               </div>
+
+              {/* --- YENİ PAYLAŞIM BUTONU --- */}
+              <button
+                onClick={handleShare}
+                className="w-full p-3 mt-2 flex items-center justify-center space-x-2 bg-[#8a63d2] text-white font-medium rounded-lg hover:bg-[#7c55c3] transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M7 17L17 7M17 7H7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span>{t.shareResult}</span>
+              </button>
+              {/* --------------------------- */}
+
             </div>
           ) : (
             <>
