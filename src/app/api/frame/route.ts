@@ -8,7 +8,7 @@ async function getResponse(req: NextRequest): Promise<NextResponse> {
   // .env dosyamızdan host'u alıyoruz.
   // Vercel'de NEXT_PUBLIC_HOST otomatik tanımlanmazsa, manuel eklemek gerekebilir.
   // Güvenlik için 'https://' protokolünü garantiye alıyoruz.
-  const host = process.env.NEXT_PUBLIC_HOST || 'http://localhost:3000';
+  const host = process.env.NEXT_PUBLIC_HOST || 'https://base-polls.vercel.app';
 
   // Bu, Mini App'imizin ana URL'sidir (src/app/page.tsx'in sunulduğu yer)
   const miniAppUrl = `${host}/`;
