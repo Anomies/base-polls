@@ -2,7 +2,7 @@
 // uygulamamızın erişebilmesi için dışa aktarır (export).
 
 // Aşama 7'de edindiğiniz deploy edilmiş sözleşme adresi
-export const contractAddress = '0x5F86C2cc182145ABad5C82186EbD3D829C3Ba023';
+export const contractAddress = '0xBc1bf5b2f5F4Bd5c0197049DE85314BEca18A824';
 
 // Aşama 7'de Remix'ten kopyaladığınız sözleşme ABI'si
 export const contractAbi = [

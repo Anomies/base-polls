@@ -10,11 +10,9 @@ import { farcasterMiniApp } from "@farcaster/miniapp-wagmi-connector";
 import { METADATA } from "../../lib/utils";
 
 export const config = createConfig({
-  chains: [base, optimism, baseSepolia],
+  chains: [base,],
   transports: {
     [base.id]: http(),
-    [optimism.id]: http(),
-    [baseSepolia.id]: http(),
   },
   // 3. YENİ: connectors dizimizi güncelliyoruz
   connectors: [

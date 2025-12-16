@@ -332,7 +332,7 @@ export default function BasePollsPage() {
         <div className="text-center mb-6 pt-12"> 
           <h1 className="text-3xl font-bold text-base-blue-600">{t.title}</h1>
           <p className="text-muted-foreground mt-1">{t.subtitle}</p>
-          <p className="text-xs text-muted-foreground mt-2 opacity-60">Poll ID: {dailyPoll.id}</p>
+          {/* <p className="text-xs text-muted-foreground mt-2 opacity-60">Poll ID: {dailyPoll.id}</p> */}
         </div>
 
         <div className="text-center p-3 mb-4 bg-secondary rounded-lg border border-border">
