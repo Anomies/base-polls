@@ -75,6 +75,7 @@ const translations = {
 type Language = 'en' | 'tr';
 type VoteStatus = 'idle' | 'loading' | 'success' | 'failed' | 'confirming' | 'processing';
 
+// Yükleme Ekranı
 const LoadingScreen = ({ lang }: { lang: Language }) => (
   <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground">
     <div className="animate-pulse"> 
@@ -116,7 +117,7 @@ export default function BasePollsPage() {
   // dailyPoll?.id var mı kontrol et, yoksa 0 kullan (hata vermemesi için)
   const pollId = dailyPoll ? BigInt(dailyPoll.id) : BigInt(0);
 
-  const { data: hasVoted, isLoading: isLoadingHasVoted, refetch: refetchHasVoted } = useReadContract({
+  const { data: hasVotedData, isLoading: isLoadingHasVoted, refetch: refetchHasVoted } = useReadContract({
     address: contractAddress as Address,
     abi: contractAbi,
     functionName: 'hasVoted',
@@ -124,7 +125,15 @@ export default function BasePollsPage() {
     query: { enabled: !!address && !!dailyPoll }, // Anket yüklendiyse sorgula
   });
 
+  // Oylama işlemi durumu
+  const { data: hash, writeContract, isPending: isVoteProcessing } = useWriteContract();
+  const { isLoading: isVoteConfirming, isSuccess: isVoteSuccess } = useWaitForTransactionReceipt({ hash });
+
+  // İyimser Oy Kontrolü
+  const hasVoted = hasVotedData || isVoteSuccess;
+
   // 2. TÜM SEÇENEKLERİN OY SAYILARINI ÇEKME
+  // Seçenek sayısı dinamik olabileceği için map içinde güvenli bir şekilde oluşturuyoruz
   const { data: voteCountsData, refetch: refetchVotes } = useReadContracts({
     contracts: dailyPoll?.options[lang].map((_, index) => ({
       address: contractAddress as Address,
@@ -139,7 +148,13 @@ export default function BasePollsPage() {
   const results = useMemo(() => {
     if (!voteCountsData || !dailyPoll) return null;
 
-    const counts = voteCountsData.map((res) => (res.status === 'success' ? Number(res.result) : 0));
+    let counts = voteCountsData.map((res) => (res.status === 'success' ? Number(res.result) : 0));
+    
+    // OPTIMISTIC UPDATE: Oy verdiysek ve veri henüz gelmediyse manuel ekle
+    if (isVoteSuccess && selectedOption !== null && !hasVotedData) {
+      counts[selectedOption] = (counts[selectedOption] || 0) + 1;
+    }
+
     const totalVotes = counts.reduce((a, b) => a + b, 0);
 
     // Seçenek metinlerini mevcut dile göre al
@@ -155,7 +170,7 @@ export default function BasePollsPage() {
         percentage,
       };
     });
-  }, [voteCountsData, dailyPoll, lang]);
+  }, [voteCountsData, dailyPoll, lang, isVoteSuccess, selectedOption, hasVotedData]);
 
   // Yükleme Durumu Effect'i
   useEffect(() => {
@@ -185,10 +200,7 @@ export default function BasePollsPage() {
     autoConnect();
   }, [connect, connectors, initialAutoConnectAttempted, isConnected, isConnecting, manualDisconnect]); 
 
-  // Oylama İşlemi
-  const { data: hash, writeContract, isPending: isVoteProcessing } = useWriteContract();
-  const { isLoading: isVoteConfirming, isSuccess: isVoteSuccess } = useWaitForTransactionReceipt({ hash });
-
+  // Oylama Buton İşlemleri
   const handleSelectOption = (optionId: number) => {
     if (hasVoted || isVoteSuccess || isVoteProcessing || isVoteConfirming) return;
     setSelectedOption(optionId);
@@ -205,6 +217,7 @@ export default function BasePollsPage() {
     });
   };
 
+  // İşlem Durumu İzleme
   useEffect(() => {
     if (isVoteProcessing) setVoteStatus('processing');
     else if (isVoteConfirming) setVoteStatus('confirming');
@@ -212,9 +225,14 @@ export default function BasePollsPage() {
       setVoteStatus('success');
       refetchHasVoted();
       refetchVotes();
+      
+      const timer1 = setTimeout(() => { refetchHasVoted(); refetchVotes(); }, 2000);
+      const timer2 = setTimeout(() => { refetchHasVoted(); refetchVotes(); }, 5000);
+      return () => { clearTimeout(timer1); clearTimeout(timer2); };
     }
   }, [isVoteProcessing, isVoteConfirming, isVoteSuccess, refetchHasVoted, refetchVotes]);
 
+  // Menü Fonksiyonları
   const toggleLanguage = () => {
     setLang(lang === 'en' ? 'tr' : 'en');
   };
@@ -228,18 +246,21 @@ export default function BasePollsPage() {
     let connector = connectors.find((c: Connector) => c.id === 'injected');
     if (!connector) connector = connectors.find((c: Connector) => c.id === 'coinbaseWallet'); 
     if (!connector) connector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
+    
     if (connector) {
       await connect({ connector }); 
       setManualDisconnect(false); 
     }
   };
 
+  // Profil verileri
   const user = (frameContext?.context as any)?.user; 
   const pfpUrl = user?.pfpUrl;
   const displayName = user?.displayName;
   const fid = user?.fid;
 
-  const showResults = hasVoted || isVoteSuccess;
+  // --- RENDER ---
+  const showResults = hasVoted; // hasVoted artık optimistic değeri de içeriyor
 
   const StatusMessage = () => {
     if (isConnecting) return <p className="text-amber-400">{t.connectWallet}</p>; 
@@ -256,7 +277,7 @@ export default function BasePollsPage() {
     return <LoadingScreen lang={lang} />;
   }
 
-  // Eğer anket verisi yüklenmediyse (çok nadir)
+  // Eğer anket verisi yüklenmediyse
   if (!dailyPoll) return null;
 
   return (
@@ -310,7 +331,7 @@ export default function BasePollsPage() {
         <div className="text-center mb-6 pt-12"> 
           <h1 className="text-3xl font-bold text-base-blue-600">{t.title}</h1>
           <p className="text-muted-foreground mt-1">{t.subtitle}</p>
-          {/* <p className="text-xs text-muted-foreground mt-2 opacity-60">Poll ID: {dailyPoll.id}</p> */}
+          <p className="text-xs text-muted-foreground mt-2 opacity-60">Poll ID: {dailyPoll.id}</p>
         </div>
 
         <div className="text-center p-3 mb-4 bg-secondary rounded-lg border border-border">
