@@ -25,6 +25,7 @@ export default function SuggestionModal({ isOpen, onClose, translations }: Sugge
 
     const subject = encodeURIComponent("Base Polls: New Question Suggestion");
     const body = encodeURIComponent(`Question: ${question}\n\nOptions: ${options}\n\nSubmitted by: ${user?.username || address}`);
+    // E-posta adresinizi buraya yazın
     window.location.href = `mailto:admin@basepolls.xyz?subject=${subject}&body=${body}`;
     
     onClose();
@@ -45,7 +46,8 @@ export default function SuggestionModal({ isOpen, onClose, translations }: Sugge
               name="question" 
               required 
               className="w-full p-2 rounded-md bg-secondary border border-border focus:ring-2 focus:ring-base-blue-500 outline-none"
-              placeholder="Ex: What is your favorite L2?"
+              // DÜZELTME: Placeholder artık çeviri objesinden (t) geliyor
+              placeholder={t.placeholderQuestion}
             />
           </div>
           <div>
@@ -55,7 +57,8 @@ export default function SuggestionModal({ isOpen, onClose, translations }: Sugge
               required 
               rows={3}
               className="w-full p-2 rounded-md bg-secondary border border-border focus:ring-2 focus:ring-base-blue-500 outline-none"
-              placeholder="Ex: Optimism, Arbitrum, Base, ZkSync"
+              // DÜZELTME: Placeholder artık çeviri objesinden (t) geliyor
+              placeholder={t.placeholderOptions}
             />
           </div>
           <div className="flex space-x-3 pt-2">

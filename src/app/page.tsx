@@ -8,13 +8,14 @@ import {
   useReadContracts, 
   useWriteContract, 
   useWaitForTransactionReceipt,
+  useDisconnect 
 } from 'wagmi';
 import { contractAddress, contractAbi } from '../lib/abi'; 
 import { Address } from 'viem';
 import { Connector } from '@wagmi/core';
 import { getDailyPoll, PollData } from '../lib/polls';
 
-// Yeni bileşenleri import ediyoruz
+// Bileşenleri import ediyoruz
 import LoadingScreen from '../components/ui/LoadingScreen';
 import ProfileMenu from '../components/ui/ProfileMenu';
 import SuggestionModal from '../components/ui/SuggestionModal';
@@ -42,7 +43,7 @@ const translations = {
     connectWalletButton: 'Connect Wallet', 
     loadingPoll: "Loading today's poll...",
     votes: 'votes',
-    shareResult: 'Share on Farcaster',
+    shareResult: 'Share on Warpcast',
     shareText: 'I just voted on Base Polls! Check it out:',
     suggestPoll: 'Suggest a Poll',
     suggestTitle: 'Suggest a Question',
@@ -51,6 +52,8 @@ const translations = {
     optionsLabel: 'Options (Separate with commas)',
     sendSuggestion: 'Send Suggestion',
     cancel: 'Cancel',
+    placeholderQuestion: 'Ex: What is your favorite L2?',
+    placeholderOptions: 'Ex: Optimism, Arbitrum, Base, ZkSync'
   },
   tr: {
     title: 'Base Polls',
@@ -72,9 +75,9 @@ const translations = {
     fid: 'FID',
     disconnect: 'Çıkış Yap',
     connectWalletButton: 'Cüzdan Bağla',
-    loadingPoll: "Günün anketini yüklüyor...",
+    loadingPoll: "Günün anketi yükleniyor...",
     votes: 'oy',
-    shareResult: 'Farcaster\'da Paylaş',
+    shareResult: 'Warpcast\'te Paylaş',
     shareText: 'Base Polls\'da oyumu kullandım! Göz at:',
     suggestPoll: 'Anket Öner',
     suggestTitle: 'Bir Soru Önerin',
@@ -83,6 +86,8 @@ const translations = {
     optionsLabel: 'Seçenekler (Virgülle ayırın)',
     sendSuggestion: 'Öneriyi Gönder',
     cancel: 'İptal',
+    placeholderQuestion: 'Örn: Favori L2 ağınız hangisi?',
+    placeholderOptions: 'Örn: Optimism, Arbitrum, Base, ZkSync'
   }
 };
 
@@ -205,6 +210,7 @@ export default function BasePollsPage() {
       setVoteStatus('success');
       refetchHasVoted();
       refetchVotes();
+      
       const timer1 = setTimeout(() => { refetchHasVoted(); refetchVotes(); }, 2000);
       const timer2 = setTimeout(() => { refetchHasVoted(); refetchVotes(); }, 5000);
       return () => { clearTimeout(timer1); clearTimeout(timer2); };
@@ -220,6 +226,8 @@ export default function BasePollsPage() {
   };
 
   const showResults = isConnected && hasVoted;
+  const hasAlreadyVotedOrIsProcessing = !isConnected || isLoadingHasVoted || isVoteProcessing || isVoteConfirming || isVoteSuccess || hasVoted;
+  const submitButtonDisabled = hasAlreadyVotedOrIsProcessing || selectedOption === null;
 
   const StatusMessage = () => {
     if (isConnecting) return <p className="text-amber-400">{t.connectWallet}</p>; 
@@ -241,6 +249,7 @@ export default function BasePollsPage() {
   return (
     <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground relative">
       
+      {/* Soru Öneri Modalı (Ayrı Bileşen) */}
       <SuggestionModal 
         isOpen={isSuggestModalOpen} 
         onClose={() => setIsSuggestModalOpen(false)} 
@@ -249,6 +258,7 @@ export default function BasePollsPage() {
 
       <div className="w-full max-w-md p-6 bg-card rounded-lg border border-border shadow-xl relative">
         
+        {/* Profil Menüsü (Ayrı Bileşen) */}
         <ProfileMenu 
           lang={lang} 
           setLang={setLang} 
@@ -324,9 +334,9 @@ export default function BasePollsPage() {
 
               <button
                 onClick={handleSubmitVote}
-                disabled={!isConnected || selectedOption === null || isVoteProcessing || isVoteConfirming}
+                disabled={submitButtonDisabled}
                 className={`w-full p-4 mt-4 font-bold text-lg rounded-lg transition-all
-                          ${(!isConnected || selectedOption === null || isVoteProcessing || isVoteConfirming)
+                          ${submitButtonDisabled
                             ? 'bg-muted text-muted-foreground cursor-not-allowed'
                             : 'bg-base-blue-600 text-white hover:bg-base-blue-700'
                           }
