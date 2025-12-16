@@ -47,7 +47,7 @@ const translations = {
     connectWalletButton: 'Connect Wallet', 
     loadingPoll: "Loading today's poll...",
     votes: 'votes',
-    shareResult: 'Share on Warpcast',
+    shareResult: 'Share on Farcaster',
     shareText: 'I just voted on Base Polls! Check it out:',
   },
   tr: {
@@ -72,7 +72,7 @@ const translations = {
     connectWalletButton: 'Cüzdan Bağla',
     loadingPoll: "Günün anketini yüklüyor...",
     votes: 'oy',
-    shareResult: 'Warpcast\'te Paylaş',
+    shareResult: 'Farcaster\'da Paylaş',
     shareText: 'Base Polls\'da oyumu kullandım! Sen de katıl:',
   }
 };
