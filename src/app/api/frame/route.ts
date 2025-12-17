@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// URL'i güvenli bir şekilde oluşturma
 const getBaseUrl = () => {
   let url = process.env.NEXT_PUBLIC_HOST || 'https://base-polls.vercel.app';
   if (url.endsWith('/')) {
@@ -9,9 +8,8 @@ const getBaseUrl = () => {
   return url;
 };
 
-const appUrl = getBaseUrl();
-
 async function getResponse(req: NextRequest): Promise<NextResponse> {
+  const appUrl = getBaseUrl();
   const imageUrl = `${appUrl}/opengraph-image.png`;
 
   const frameHtml = `
@@ -22,16 +20,18 @@ async function getResponse(req: NextRequest): Promise<NextResponse> {
         <meta property="og:title" content="Base Polls" />
         <meta property="og:image" content="${imageUrl}" />
         
+        <!-- Frame Ayarları -->
         <meta property="fc:frame" content="vNext" />
         <meta property="fc:frame:image" content="${imageUrl}" />
         <meta property="fc:frame:image:aspect_ratio" content="1.91:1" />
 
+        <!-- Mini App Başlatma Butonu -->
         <meta property="fc:frame:button:1" content="Anketi Başlat 🗳️" />
         <meta property="fc:frame:button:1:action" content="link" />
         <meta property="fc:frame:button:1:target" content="${appUrl}" />
       </head>
       <body>
-        <h1>Base Polls</h1>
+        <h1>Base Polls Frame</h1>
       </body>
     </html>
   `;
