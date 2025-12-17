@@ -5,8 +5,19 @@ import { Providers } from "~/app/providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// Canlı URL'nizi buraya yazın (sonunda / olmasın)
-const appUrl = "https://base-polls.vercel.app";
+// URL'i güvenli bir şekilde oluşturma fonksiyonu
+const getBaseUrl = () => {
+  // Eğer tanımlıysa env değişkenini kullan, yoksa hardcoded URL'i
+  let url = process.env.NEXT_PUBLIC_HOST || 'https://base-polls.vercel.app';
+  // Sonunda slash varsa kaldır (böylece kodda güvenle / ekleyebiliriz)
+  if (url.endsWith('/')) {
+    url = url.slice(0, -1);
+  }
+  return url;
+};
+
+const appUrl = getBaseUrl();
+const imageUrl = `${appUrl}/opengraph-image.png`;
 
 export const metadata: Metadata = {
   title: "Base Polls",
@@ -18,7 +29,7 @@ export const metadata: Metadata = {
     siteName: "Base Polls",
     images: [
       {
-        url: `${appUrl}/opengraph-image.png`,
+        url: imageUrl,
         width: 1200,
         height: 630,
         alt: "Base Polls Preview",
@@ -28,16 +39,15 @@ export const metadata: Metadata = {
     type: "website",
   },
   other: {
-    // Base App ID
     'base:app_id': '694117afd77c069a945bdf4d',
     
-    // Farcaster Frame Meta Etiketleri (Ana sayfa için)
+    // Farcaster Frame Meta Etiketleri
     "fc:frame": "vNext",
-    "fc:frame:image": `${appUrl}opengraph-image.png`,
+    "fc:frame:image": imageUrl,
     "fc:frame:image:aspect_ratio": "1.91:1",
     "fc:frame:button:1": "Anketi Başlat 🗳️",
-    "fc:frame:button:1:action": "link", // Mini App başlatmak için 'link' kullanılır
-    "fc:frame:button:1:target": appUrl, // Mini App'in açılacağı URL
+    "fc:frame:button:1:action": "link",
+    "fc:frame:button:1:target": appUrl,
   },
 };
 
