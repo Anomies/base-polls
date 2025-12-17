@@ -1,27 +1,24 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-// Orijinal şablonun kullandığı Providers importu
 import { Providers } from "~/app/providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// Base'in istediği metadata ve OG Image ayarları
+// Canlı URL'nizi buraya yazın (sonunda / olmasın)
+const appUrl = "https://base-polls.vercel.app";
+
 export const metadata: Metadata = {
   title: "Base Polls",
   description: "Daily polls for the Base ecosystem.",
-  other: {
-    'base:app_id': '694117afd77c069a945bdf4d', 
-  },
-  // YENİ: Open Graph (Facebook, Discord, LinkedIn vb.) ayarları
   openGraph: {
     title: "Base Polls",
     description: "Daily polls for the Base ecosystem.",
-    url: "https://base-polls.vercel.app", // Kendi canlı URL'inizi buraya yazın
+    url: appUrl,
     siteName: "Base Polls",
     images: [
       {
-        url: "/opengraph-image.png", // Dosya yolunu açıkça belirtiyoruz
+        url: `${appUrl}/opengraph-image.png`,
         width: 1200,
         height: 630,
         alt: "Base Polls Preview",
@@ -30,12 +27,17 @@ export const metadata: Metadata = {
     locale: "en_US",
     type: "website",
   },
-  // YENİ: Twitter Card ayarları
-  twitter: {
-    card: "summary_large_image",
-    title: "Base Polls",
-    description: "Daily polls for the Base ecosystem.",
-    images: ["/opengraph-image.png"], // Dosya yolunu açıkça belirtiyoruz
+  other: {
+    // Base App ID
+    'base:app_id': '694117afd77c069a945bdf4d',
+    
+    // Farcaster Frame Meta Etiketleri (Ana sayfa için)
+    "fc:frame": "vNext",
+    "fc:frame:image": `${appUrl}/opengraph-image.png`,
+    "fc:frame:image:aspect_ratio": "1.91:1",
+    "fc:frame:button:1": "Anketi Başlat 🗳️",
+    "fc:frame:button:1:action": "link", // Mini App başlatmak için 'link' kullanılır
+    "fc:frame:button:1:target": appUrl, // Mini App'in açılacağı URL
   },
 };
 
