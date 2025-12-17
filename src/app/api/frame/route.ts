@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const appUrl = process.env.NEXT_PUBLIC_HOST || 'https://base-polls.vercel.app';
 
 async function getResponse(req: NextRequest): Promise<NextResponse> {
-  const imageUrl = `${appUrl}/opengraph-image.png`;
+  const imageUrl = `${appUrl}opengraph-image.png`;
 
   const frameHtml = `
     <!DOCTYPE html>

@@ -33,7 +33,7 @@ export const metadata: Metadata = {
     
     // Farcaster Frame Meta Etiketleri (Ana sayfa için)
     "fc:frame": "vNext",
-    "fc:frame:image": `${appUrl}/opengraph-image.png`,
+    "fc:frame:image": `${appUrl}opengraph-image.png`,
     "fc:frame:image:aspect_ratio": "1.91:1",
     "fc:frame:button:1": "Anketi Başlat 🗳️",
     "fc:frame:button:1:action": "link", // Mini App başlatmak için 'link' kullanılır
