@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const appUrl = "https://base-polls.vercel.app";
-// Cache temizliği için v=3
-const imageUrl = `${appUrl}/opengraph-image.png?v=3`;
+// Cache temizliği için v=4
+const imageUrl = `${appUrl}/opengraph-image.png?v=4`;
 
 async function getResponse(req: NextRequest): Promise<NextResponse> {
   
@@ -10,7 +10,7 @@ async function getResponse(req: NextRequest): Promise<NextResponse> {
     version: "1",
     imageUrl: imageUrl,
     button: {
-      title: "Anketi Başlat 🗳️",
+      title: "Start Poll 🗳️",
       action: {
         type: "launch_frame",
         name: "Base Polls",

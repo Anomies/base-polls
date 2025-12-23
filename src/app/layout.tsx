@@ -7,8 +7,8 @@ const inter = Inter({ subsets: ["latin"] });
 
 // 1. URL Ayarları
 const appUrl = "https://base-polls.vercel.app";
-// Görsel cache'ini temizlemek için versiyonu artırdık (v=3)
-const imageUrl = `${appUrl}/opengraph-image.png?v=3`;
+// Görsel cache'ini temizlemek için versiyonu artırdık (v=4)
+const imageUrl = `${appUrl}/opengraph-image.png?v=4`;
 
 // 2. Farcaster Mini App Yapılandırması (JSON)
 const miniAppConfig = {
