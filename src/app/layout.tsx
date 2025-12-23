@@ -5,14 +5,11 @@ import { Providers } from "~/app/providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// URL oluşturma fonksiyonu
-const getBaseUrl = () => {
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  if (process.env.NEXT_PUBLIC_HOST) return process.env.NEXT_PUBLIC_HOST;
-  return "https://base-polls.vercel.app";
-};
+// URL'i SABİTLİYORUZ (Hata riskini sıfıra indirmek için)
+// Burası kesinlikle sizin canlı site adresiniz olmalı.
+const appUrl = "https://base-polls.vercel.app";
 
-const appUrl = getBaseUrl();
+// Görselin tam adresi
 const imageUrl = `${appUrl}/opengraph-image.png`;
 
 export const metadata: Metadata = {
@@ -21,7 +18,7 @@ export const metadata: Metadata = {
   title: "Base Polls",
   description: "Daily polls for the Base ecosystem.",
   
-  // Facebook, Discord, vb. için Open Graph
+  // Sosyal Medya Önizlemeleri
   openGraph: {
     title: "Base Polls",
     description: "Daily polls for the Base ecosystem.",
@@ -39,7 +36,7 @@ export const metadata: Metadata = {
     type: "website",
   },
 
-  // YENİ: Twitter Kartı Ayarları (Embed Sorununu Çözer)
+  // Twitter Kartı
   twitter: {
     card: "summary_large_image",
     title: "Base Polls",
@@ -47,16 +44,16 @@ export const metadata: Metadata = {
     images: [imageUrl],
   },
   
-  // Farcaster Frame ve App ID Ayarları
+  // Farcaster Frame Ayarları
   other: {
-    'base:app_id': '694117afd77c069a945bdf4d',
+    'base:app_id': '694117afd77c069a945bdf4d', // Sizin ID'niz
     
-    // Farcaster Frame (Mini App Başlatıcı)
     "fc:frame": "vNext",
     "fc:frame:image": imageUrl,
     "fc:frame:image:aspect_ratio": "1.91:1",
     
-    // Buton
+    // Mini App Başlatma Butonu
+    // 'link' aksiyonu ve hedef URL doğru
     "fc:frame:button:1": "Anketi Başlat 🗳️",
     "fc:frame:button:1:action": "link",
     "fc:frame:button:1:target": appUrl,
