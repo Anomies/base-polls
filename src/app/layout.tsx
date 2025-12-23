@@ -8,10 +8,8 @@ const inter = Inter({ subsets: ["latin"] });
 // URL'i SABİTLİYORUZ
 const appUrl = "https://base-polls.vercel.app";
 
-// Görselin tam adresi
-const imageUrl = `${appUrl}/opengraph-image.png`;
-// Post URL'si (Frame validasyonu için gerekli olabilir, boş olsa bile bir endpoint göstermeli)
-const postUrl = `${appUrl}/api/frame`;
+// Görselin tam adresi (Cache yenilemek için ?v=1 eklendi)
+const imageUrl = `${appUrl}/opengraph-image.png?v=1`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
@@ -43,17 +41,16 @@ export const metadata: Metadata = {
     images: [imageUrl],
   },
   
-  // Farcaster Frame Ayarları
+  // Farcaster Frame Ayarları (Sadeleştirildi)
   other: {
     'base:app_id': '694117afd77c069a945bdf4d',
     
     "fc:frame": "vNext",
     "fc:frame:image": imageUrl,
     "fc:frame:image:aspect_ratio": "1.91:1",
-    // Link butonu olsa bile post_url eklemek validasyonu güçlendirir
-    "fc:frame:post_url": postUrl,
     
     // Mini App Başlatma Butonu
+    // 'post_url' kaldırıldı çünkü 'link' aksiyonunda gerekli değil ve kafa karıştırabilir.
     "fc:frame:button:1": "Anketi Başlat 🗳️",
     "fc:frame:button:1:action": "link",
     "fc:frame:button:1:target": appUrl,
