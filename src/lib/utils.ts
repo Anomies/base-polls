@@ -8,7 +8,7 @@ export const METADATA = {
   imageUrl: 'https://imgur.com/a/KselwNG.png',
   bannerImageUrl: 'https://imgur.com/vvFlKW7.png',
   iconImageUrl: 'https://imgur.com/vvFlKW7.png',
-  homeUrl: process.env.NEXT_PUBLIC_URL ?? "https://base-polls.vercel.app/",
+  homeUrl: process.env.NEXT_PUBLIC_URL ?? "https://base-polls.vercel.app",
   splashBackgroundColor: "#FFFFFF",
   primaryCategory: ["primaryCategories.social"]
 }

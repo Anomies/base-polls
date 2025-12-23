@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const getBaseUrl = () => {
-  let url = process.env.NEXT_PUBLIC_HOST || 'https://base-polls.vercel.app';
-  if (url.endsWith('/')) {
-    url = url.slice(0, -1);
-  }
-  return url;
-};
+const appUrl = "https://base-polls.vercel.app";
+const imageUrl = `${appUrl}/opengraph-image.png`;
 
 async function getResponse(req: NextRequest): Promise<NextResponse> {
-  const appUrl = getBaseUrl();
-  const imageUrl = `${appUrl}/opengraph-image.png`;
+  
+  // JSON konfigürasyonunu burada da oluşturuyoruz
+  const miniAppConfig = {
+    version: "1",
+    imageUrl: imageUrl,
+    button: {
+      title: "Anketi Başlat 🗳️",
+      action: {
+        type: "launch_frame",
+        name: "Base Polls",
+        url: appUrl,
+        splashImageUrl: `${appUrl}/icon.png`,
+        splashBackgroundColor: "#0052FF"
+      }
+    }
+  };
+  
+  const miniAppMetadata = JSON.stringify(miniAppConfig);
 
   const frameHtml = `
     <!DOCTYPE html>
@@ -20,18 +31,11 @@ async function getResponse(req: NextRequest): Promise<NextResponse> {
         <meta property="og:title" content="Base Polls" />
         <meta property="og:image" content="${imageUrl}" />
         
-        <!-- Frame Ayarları -->
-        <meta property="fc:frame" content="vNext" />
-        <meta property="fc:frame:image" content="${imageUrl}" />
-        <meta property="fc:frame:image:aspect_ratio" content="1.91:1" />
-
-        <!-- Mini App Başlatma Butonu -->
-        <meta property="fc:frame:button:1" content="Anketi Başlat 🗳️" />
-        <meta property="fc:frame:button:1:action" content="link" />
-        <meta property="fc:frame:button:1:target" content="${appUrl}" />
+        <!-- YENİ STANDART -->
+        <meta name="fc:frame" content='${miniAppMetadata}' />
       </head>
       <body>
-        <h1>Base Polls Frame</h1>
+        <h1>Base Polls</h1>
       </body>
     </html>
   `;
