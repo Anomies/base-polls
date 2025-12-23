@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const appUrl = "https://base-polls.vercel.app";
 // Cache temizliği için v=5
-const imageUrl = `${appUrl}/opengraph-image.png?v=5`;
+const imageUrl = `${appUrl}/opengraph-image.png?v=6`;
 
 async function getResponse(req: NextRequest): Promise<NextResponse> {
   
