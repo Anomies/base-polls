@@ -5,10 +5,15 @@ import { Providers } from "~/app/providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// Canlı URL'nizi buraya yazın (sonunda slash olmasın)
-const appUrl = process.env.NEXT_PUBLIC_HOST || "https://base-polls.vercel.app";
+// URL oluşturma fonksiyonu (Slash hatasını önler)
+const getBaseUrl = () => {
+  // Varsayılan URL
+  let url = process.env.NEXT_PUBLIC_HOST || "https://base-polls.vercel.app";
+  // Eğer URL'in sonunda / varsa, onu kaldır
+  return url.endsWith("/") ? url.slice(0, -1) : url;
+};
 
-// Görselin tam URL'si
+const appUrl = getBaseUrl();
 const imageUrl = `${appUrl}/opengraph-image.png`;
 
 export const metadata: Metadata = {
@@ -16,7 +21,7 @@ export const metadata: Metadata = {
   
   title: "Base Polls",
   description: "Daily polls for the Base ecosystem.",
- 
+  
   openGraph: {
     title: "Base Polls",
     description: "Daily polls for the Base ecosystem.",
@@ -34,15 +39,15 @@ export const metadata: Metadata = {
     type: "website",
   },
   
-  // Farcaster Frame Etiketleri
   other: {
     'base:app_id': '694117afd77c069a945bdf4d',
     
+    // Farcaster Frame
     "fc:frame": "vNext",
-    "fc:frame:image": imageUrl, // Tam URL kullanıyoruz
+    "fc:frame:image": imageUrl,
     "fc:frame:image:aspect_ratio": "1.91:1",
     
-    // Mini App Butonu
+    // Mini App Başlatma Butonu
     "fc:frame:button:1": "Anketi Başlat 🗳️",
     "fc:frame:button:1:action": "link",
     "fc:frame:button:1:target": appUrl,
