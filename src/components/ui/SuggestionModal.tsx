@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useAccount } from 'wagmi';
-// FrameProvider yolunu düzeltiyoruz
 import { useFrameContext } from '../providers/FrameProvider';
 
 interface SuggestionModalProps {
@@ -17,18 +16,44 @@ export default function SuggestionModal({ isOpen, onClose, translations }: Sugge
   const user = (frameContext?.context as any)?.user;
   const t = translations;
 
-  const handleSendSuggestion = (e: React.FormEvent<HTMLFormElement>) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  const handleSendSuggestion = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitStatus('idle');
+
     const formData = new FormData(e.currentTarget);
     const question = formData.get('question');
     const options = formData.get('options');
 
-    const subject = encodeURIComponent("Base Polls: New Question Suggestion");
-    const body = encodeURIComponent(`Question: ${question}\n\nOptions: ${options}\n\nSubmitted by: ${user?.username || address}`);
-    // E-posta adresinizi buraya yazın
-    window.location.href = `mailto:basepolls@protonmail.com?subject=${subject}&body=${body}`;
-    
-    onClose();
+    try {
+      const response = await fetch('/api/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question,
+          options,
+          user: user?.username || address || 'Anonymous',
+        }),
+      });
+
+      if (response.ok) {
+        setSubmitStatus('success');
+        setTimeout(() => {
+          onClose();
+          setSubmitStatus('idle');
+          setIsSubmitting(false);
+        }, 2000);
+      } else {
+        setSubmitStatus('error');
+        setIsSubmitting(false);
+      }
+    } catch (error) {
+      setSubmitStatus('error');
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -39,44 +64,29 @@ export default function SuggestionModal({ isOpen, onClose, translations }: Sugge
         <h3 className="text-xl font-bold text-base-blue-600 mb-2">{t.suggestTitle}</h3>
         <p className="text-sm text-muted-foreground mb-4">{t.suggestDesc}</p>
         
-        <form onSubmit={handleSendSuggestion} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">{t.questionLabel}</label>
-            <input 
-              name="question" 
-              required 
-              className="w-full p-2 rounded-md bg-secondary border border-border focus:ring-2 focus:ring-base-blue-500 outline-none"
-              // DÜZELTME: Placeholder artık çeviri objesinden (t) geliyor
-              placeholder={t.placeholderQuestion}
-            />
+        {submitStatus === 'success' ? (
+          <div className="py-8 text-center text-green-500 font-medium animate-pulse">
+            {t.suggestionSuccess}<br/>{t.suggestionThanks}
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">{t.optionsLabel}</label>
-            <textarea 
-              name="options" 
-              required 
-              rows={3}
-              className="w-full p-2 rounded-md bg-secondary border border-border focus:ring-2 focus:ring-base-blue-500 outline-none"
-              // DÜZELTME: Placeholder artık çeviri objesinden (t) geliyor
-              placeholder={t.placeholderOptions}
-            />
-          </div>
-          <div className="flex space-x-3 pt-2">
-            <button 
-              type="button" 
-              onClick={onClose}
-              className="flex-1 py-2 rounded-md bg-secondary hover:bg-muted transition-colors text-sm font-medium"
-            >
-              {t.cancel}
-            </button>
-            <button 
-              type="submit" 
-              className="flex-1 py-2 rounded-md bg-base-blue-600 hover:bg-base-blue-700 text-white transition-colors text-sm font-medium"
-            >
-              {t.sendSuggestion}
-            </button>
-          </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSendSuggestion} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">{t.questionLabel}</label>
+              <input name="question" required disabled={isSubmitting} className="w-full p-2 rounded-md bg-secondary border border-border focus:ring-2 focus:ring-base-blue-500 outline-none disabled:opacity-50" placeholder={t.placeholderQuestion} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t.optionsLabel}</label>
+              <textarea name="options" required rows={3} disabled={isSubmitting} className="w-full p-2 rounded-md bg-secondary border border-border focus:ring-2 focus:ring-base-blue-500 outline-none disabled:opacity-50" placeholder={t.placeholderOptions} />
+            </div>
+            {submitStatus === 'error' && <p className="text-red-500 text-sm text-center">{t.suggestionError}</p>}
+            <div className="flex space-x-3 pt-2">
+              <button type="button" onClick={onClose} disabled={isSubmitting} className="flex-1 py-2 rounded-md bg-secondary hover:bg-muted transition-colors text-sm font-medium disabled:opacity-50">{t.cancel}</button>
+              <button type="submit" disabled={isSubmitting} className="flex-1 py-2 rounded-md bg-base-blue-600 hover:bg-base-blue-700 text-white transition-colors text-sm font-medium flex justify-center items-center disabled:opacity-50">
+                {isSubmitting ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span> : t.sendSuggestion}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

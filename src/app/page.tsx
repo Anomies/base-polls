@@ -1,25 +1,34 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+
+// Gerekli tüm importlar
 import { 
   useAccount, 
   useConnect, 
   useReadContract, 
   useReadContracts, 
   useWriteContract, 
-  useWaitForTransactionReceipt,
+  useWaitForTransactionReceipt, 
   useDisconnect 
 } from 'wagmi';
+
+import { useFrameContext } from '../components/providers/FrameProvider';
 import { contractAddress, contractAbi } from '../lib/abi'; 
 import { Address } from 'viem';
 import { Connector } from '@wagmi/core';
+import Image from 'next/image';
+
+// Anket verilerini import ediyoruz
 import { getDailyPoll, PollData } from '../lib/polls';
 
 // Bileşenleri import ediyoruz
 import LoadingScreen from '../components/ui/LoadingScreen';
 import ProfileMenu from '../components/ui/ProfileMenu';
 import SuggestionModal from '../components/ui/SuggestionModal';
+import FeedbackModal from '../components/ui/FeedbackModal';
 
+// Dil çevirileri
 const translations = {
   en: {
     title: 'Base Polls',
@@ -45,6 +54,8 @@ const translations = {
     votes: 'votes',
     shareResult: 'Share on Warpcast',
     shareText: 'I just voted on Base Polls! Check it out:',
+    
+    // Soru Öneri Çevirileri
     suggestPoll: 'Suggest a Poll',
     suggestTitle: 'Suggest a Question',
     suggestDesc: 'Have a great idea? Send it to us!',
@@ -53,7 +64,20 @@ const translations = {
     sendSuggestion: 'Send Suggestion',
     cancel: 'Cancel',
     placeholderQuestion: 'Ex: What is your favorite L2?',
-    placeholderOptions: 'Ex: Optimism, Arbitrum, Base, ZkSync'
+    placeholderOptions: 'Ex: Optimism, Arbitrum, Base, ZkSync',
+    suggestionSuccess: '✅ Suggestion sent successfully!',
+    suggestionThanks: 'Thanks!',
+    suggestionError: 'An error occurred. Please try again.',
+    
+    // Feedback Çevirileri
+    sendFeedback: 'Send Feedback',
+    feedbackTitle: 'Send Feedback',
+    feedbackDesc: 'Report a bug or share your thoughts.',
+    feedbackLabel: 'Your Feedback',
+    feedbackPlaceholder: 'Describe the issue or idea...',
+    feedbackSuccess: '✅ Feedback received!',
+    feedbackThanks: 'Thanks!',
+    feedbackError: 'An error occurred.',
   },
   tr: {
     title: 'Base Polls',
@@ -79,6 +103,8 @@ const translations = {
     votes: 'oy',
     shareResult: 'Warpcast\'te Paylaş',
     shareText: 'Base Polls\'da oyumu kullandım! Göz at:',
+    
+    // Soru Öneri Çevirileri
     suggestPoll: 'Anket Öner',
     suggestTitle: 'Bir Soru Önerin',
     suggestDesc: 'Harika bir fikriniz mi var? Bize gönderin!',
@@ -87,22 +113,36 @@ const translations = {
     sendSuggestion: 'Öneriyi Gönder',
     cancel: 'İptal',
     placeholderQuestion: 'Örn: Favori L2 ağınız hangisi?',
-    placeholderOptions: 'Örn: Optimism, Arbitrum, Base, ZkSync'
+    placeholderOptions: 'Örn: Optimism, Arbitrum, Base, ZkSync',
+    suggestionSuccess: '✅ Öneriniz başarıyla gönderildi!',
+    suggestionThanks: 'Teşekkürler!',
+    suggestionError: 'Bir hata oluştu. Lütfen tekrar deneyin.',
+
+    // Feedback Çevirileri
+    sendFeedback: 'Geri Dönüt Gönder',
+    feedbackTitle: 'Geri Dönüt Gönder',
+    feedbackDesc: 'Bir hata bildirin veya düşüncelerinizi paylaşın.',
+    feedbackLabel: 'Görüşleriniz',
+    feedbackPlaceholder: 'Sorunu veya fikrinizi açıklayın...',
+    feedbackSuccess: '✅ Geri bildiriminiz alındı!',
+    feedbackThanks: 'Teşekkürler!',
+    feedbackError: 'Hata oluştu.',
   }
 };
 
 type Language = 'en' | 'tr';
-const CURRENT_POLL_ID = 1;
-type VoteStatus = 'idle' | 'loading' | 'success' | 'failed' | 'confirming' | 'processing';
 
 export default function BasePollsPage() {
   const [appLoading, setAppLoading] = useState(true); 
   const [lang, setLang] = useState<Language>('en');
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [voteStatus, setVoteStatus] = useState<VoteStatus>('idle');
+  const [voteStatus, setVoteStatus] = useState<'idle' | 'loading' | 'success' | 'failed' | 'confirming' | 'processing'>('idle');
   const [initialAutoConnectAttempted, setInitialAutoConnectAttempted] = useState(false);
   const [manualDisconnect, setManualDisconnect] = useState(false);
+  
   const [isSuggestModalOpen, setIsSuggestModalOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+
   const [dailyPoll, setDailyPoll] = useState<PollData | null>(null);
 
   const t = translations[lang];
@@ -114,6 +154,7 @@ export default function BasePollsPage() {
 
   const { connect, connectors } = useConnect();
   const { address, isConnected, isConnecting } = useAccount(); 
+  const frameContext = useFrameContext();
 
   const pollId = dailyPoll ? BigInt(dailyPoll.id) : BigInt(0);
 
@@ -142,24 +183,13 @@ export default function BasePollsPage() {
 
   const results = useMemo(() => {
     if (!voteCountsData || !dailyPoll) return null;
-
     let counts = voteCountsData.map((res) => (res.status === 'success' ? Number(res.result) : 0));
-    
-    if (isVoteSuccess && selectedOption !== null && !hasVotedData) {
-      counts[selectedOption] = (counts[selectedOption] || 0) + 1;
-    }
-
+    if (isVoteSuccess && selectedOption !== null && !hasVotedData) counts[selectedOption] = (counts[selectedOption] || 0) + 1;
     const totalVotes = counts.reduce((a, b) => a + b, 0);
-
     return dailyPoll.options[lang].map((text, index) => {
       const count = counts[index] || 0;
       const percentage = totalVotes === 0 ? 0 : Math.round((count / totalVotes) * 100);
-      return {
-        id: index,
-        text,
-        count,
-        percentage,
-      };
+      return { id: index, text, count, percentage };
     });
   }, [voteCountsData, dailyPoll, lang, isVoteSuccess, selectedOption, hasVotedData]);
 
@@ -167,9 +197,7 @@ export default function BasePollsPage() {
     if (!dailyPoll) return;
     const isLoading = isConnecting || (isConnected && isLoadingHasVoted);
     if (!isLoading) {
-      const timer = setTimeout(() => {
-        setAppLoading(false);
-      }, 1500); 
+      const timer = setTimeout(() => { setAppLoading(false); }, 1500); 
       return () => clearTimeout(timer);
     }
   }, [isConnecting, isConnected, isLoadingHasVoted, dailyPoll]);
@@ -179,9 +207,7 @@ export default function BasePollsPage() {
       if (!isConnected && !isConnecting && !initialAutoConnectAttempted && !manualDisconnect && connectors.length > 0) {
         setInitialAutoConnectAttempted(true); 
         const farcasterConnector = connectors.find((c: Connector) => c.id === 'farcasterMiniApp');
-        if (farcasterConnector) {
-          await connect({ connector: farcasterConnector });
-        }
+        if (farcasterConnector) await connect({ connector: farcasterConnector });
       }
     };
     autoConnect();
@@ -210,7 +236,6 @@ export default function BasePollsPage() {
       setVoteStatus('success');
       refetchHasVoted();
       refetchVotes();
-      
       const timer1 = setTimeout(() => { refetchHasVoted(); refetchVotes(); }, 2000);
       const timer2 = setTimeout(() => { refetchHasVoted(); refetchVotes(); }, 5000);
       return () => { clearTimeout(timer1); clearTimeout(timer2); };
@@ -249,21 +274,28 @@ export default function BasePollsPage() {
   return (
     <main className="flex flex-col items-center justify-center min-h-screen p-4 bg-background text-foreground relative">
       
-      {/* Soru Öneri Modalı (Ayrı Bileşen) */}
+      {/* MODALLAR */}
       <SuggestionModal 
         isOpen={isSuggestModalOpen} 
         onClose={() => setIsSuggestModalOpen(false)} 
         translations={t} 
       />
+      
+      <FeedbackModal 
+        isOpen={isFeedbackModalOpen} 
+        onClose={() => setIsFeedbackModalOpen(false)} 
+        translations={t} 
+      />
 
       <div className="w-full max-w-md p-6 bg-card rounded-lg border border-border shadow-xl relative">
         
-        {/* Profil Menüsü (Ayrı Bileşen) */}
+        {/* Profil Menüsü */}
         <ProfileMenu 
           lang={lang} 
           setLang={setLang} 
           translations={t} 
           onOpenSuggestionModal={() => setIsSuggestModalOpen(true)}
+          onOpenFeedbackModal={() => setIsFeedbackModalOpen(true)}
         />
 
         <div className="text-center mb-6 pt-12"> 
@@ -276,6 +308,7 @@ export default function BasePollsPage() {
           <StatusMessage />
         </div>
 
+        {/* ANKET ALANI */}
         <div className="space-y-4">
           <h2 className="text-lg font-semibold text-card-foreground">
             {dailyPoll.question[lang]}
@@ -305,12 +338,9 @@ export default function BasePollsPage() {
                 onClick={handleShare}
                 className="w-full p-3 mt-2 flex items-center justify-center space-x-2 bg-[#8a63d2] text-white font-medium rounded-lg hover:bg-[#7c55c3] transition-colors"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M7 17L17 7M17 7H7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7 17L17 7M17 7H7M17 7V17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 <span>{t.shareResult}</span>
               </button>
-
             </div>
           ) : (
             <>
