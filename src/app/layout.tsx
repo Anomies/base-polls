@@ -5,12 +5,13 @@ import { Providers } from "~/app/providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// URL'i SABİTLİYORUZ (Hata riskini sıfıra indirmek için)
-// Burası kesinlikle sizin canlı site adresiniz olmalı.
+// URL'i SABİTLİYORUZ
 const appUrl = "https://base-polls.vercel.app";
 
 // Görselin tam adresi
 const imageUrl = `${appUrl}/opengraph-image.png`;
+// Post URL'si (Frame validasyonu için gerekli olabilir, boş olsa bile bir endpoint göstermeli)
+const postUrl = `${appUrl}/api/frame`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(appUrl),
@@ -18,7 +19,6 @@ export const metadata: Metadata = {
   title: "Base Polls",
   description: "Daily polls for the Base ecosystem.",
   
-  // Sosyal Medya Önizlemeleri
   openGraph: {
     title: "Base Polls",
     description: "Daily polls for the Base ecosystem.",
@@ -36,7 +36,6 @@ export const metadata: Metadata = {
     type: "website",
   },
 
-  // Twitter Kartı
   twitter: {
     card: "summary_large_image",
     title: "Base Polls",
@@ -46,14 +45,15 @@ export const metadata: Metadata = {
   
   // Farcaster Frame Ayarları
   other: {
-    'base:app_id': '694117afd77c069a945bdf4d', // Sizin ID'niz
+    'base:app_id': '694117afd77c069a945bdf4d',
     
     "fc:frame": "vNext",
     "fc:frame:image": imageUrl,
     "fc:frame:image:aspect_ratio": "1.91:1",
+    // Link butonu olsa bile post_url eklemek validasyonu güçlendirir
+    "fc:frame:post_url": postUrl,
     
     // Mini App Başlatma Butonu
-    // 'link' aksiyonu ve hedef URL doğru
     "fc:frame:button:1": "Anketi Başlat 🗳️",
     "fc:frame:button:1:action": "link",
     "fc:frame:button:1:target": appUrl,
