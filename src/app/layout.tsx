@@ -7,26 +7,25 @@ const inter = Inter({ subsets: ["latin"] });
 
 // 1. URL Ayarları
 const appUrl = "https://base-polls.vercel.app";
-const imageUrl = `${appUrl}/opengraph-image.png`;
+// Görsel cache'ini temizlemek için versiyonu artırdık (v=3)
+const imageUrl = `${appUrl}/opengraph-image.png?v=3`;
 
-// 2. Farcaster Mini App Yapılandırması (JSON Formatı)
-// Dökümana göre bu obje stringify edilip meta etiketine konulmalı.
+// 2. Farcaster Mini App Yapılandırması (JSON)
 const miniAppConfig = {
   version: "1",
   imageUrl: imageUrl,
   button: {
-    title: "Anketi Başlat 🗳️",
+    title: "Start Poll 🗳️",
     action: {
-      type: "launch_frame", // "launch_miniapp" yerine "launch_frame" kullanılması öneriliyor (v2 için)
+      type: "launch_frame",
       name: "Base Polls",
       url: appUrl,
-      splashImageUrl: `${appUrl}/icon.png`, // Varsa ikonunuz
-      splashBackgroundColor: "#0052FF" // Base Mavisi
+      splashImageUrl: `${appUrl}/icon.png`,
+      splashBackgroundColor: "#0052FF"
     }
   }
 };
 
-// JSON objesini string'e çeviriyoruz
 const miniAppMetadata = JSON.stringify(miniAppConfig);
 
 export const metadata: Metadata = {
@@ -34,7 +33,6 @@ export const metadata: Metadata = {
   title: "Base Polls",
   description: "Daily polls for the Base ecosystem.",
   
-  // Standart Sosyal Medya
   openGraph: {
     title: "Base Polls",
     description: "Daily polls for the Base ecosystem.",
@@ -45,20 +43,18 @@ export const metadata: Metadata = {
     type: "website",
   },
   
-  // Twitter
   twitter: {
     card: "summary_large_image",
     title: "Base Polls",
     images: [imageUrl],
   },
 
-  // Farcaster & Base Özel Etiketleri
   other: {
-    // Base App ID (Manifest doğrulama için)
     'base:app_id': '694117afd77c069a945bdf4d', 
-    
-    // Farcaster Mini App Etiketi (YENİ STANDART)
     "fc:frame": miniAppMetadata,
+    // YENİ: Görsel oranını 1:1 (Kare) yapıyoruz. 
+    // Bu, görselin daha büyük görünmesini ve kesilmemesini sağlar.
+    "fc:frame:image:aspect_ratio": "1:1",
   },
 };
 
@@ -70,8 +66,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
-        {/* Next.js metadata API bazen custom tag'lerde sorun çıkarırsa diye manuel yedek */}
         <meta property="fc:frame" content={miniAppMetadata} />
+        {/* Manuel yedekleme etiketi */}
+        <meta property="fc:frame:image:aspect_ratio" content="1:1" />
       </head>
       <body className={inter.className}> 
         <Providers>

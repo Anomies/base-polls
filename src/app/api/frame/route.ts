@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const appUrl = "https://base-polls.vercel.app";
-const imageUrl = `${appUrl}/opengraph-image.png`;
+// Cache temizliği için v=3
+const imageUrl = `${appUrl}/opengraph-image.png?v=3`;
 
 async function getResponse(req: NextRequest): Promise<NextResponse> {
   
-  // JSON konfigürasyonunu burada da oluşturuyoruz
   const miniAppConfig = {
     version: "1",
     imageUrl: imageUrl,
@@ -31,8 +31,9 @@ async function getResponse(req: NextRequest): Promise<NextResponse> {
         <meta property="og:title" content="Base Polls" />
         <meta property="og:image" content="${imageUrl}" />
         
-        <!-- YENİ STANDART -->
         <meta name="fc:frame" content='${miniAppMetadata}' />
+        <!-- YENİ: Kare görünüm ayarı -->
+        <meta property="fc:frame:image:aspect_ratio" content="1:1" />
       </head>
       <body>
         <h1>Base Polls</h1>
