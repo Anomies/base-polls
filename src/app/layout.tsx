@@ -1,27 +1,22 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-// DÜZELTME: Garanti olması için göreceli yol kullanıyoruz
-import { Providers } from "./providers";
+import { Providers } from "~/app/providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// URL'i güvenli bir şekilde oluşturma fonksiyonu
-const getBaseUrl = () => {
-  let url = process.env.NEXT_PUBLIC_HOST || 'https://base-polls.vercel.app';
-  if (url.endsWith('/')) {
-    url = url.slice(0, -1);
-  }
-  return url;
-};
+// Canlı URL'nizi buraya yazın (sonunda slash olmasın)
+const appUrl = process.env.NEXT_PUBLIC_HOST || "https://base-polls.vercel.app";
 
-const appUrl = getBaseUrl();
+// Görselin tam URL'si
 const imageUrl = `${appUrl}/opengraph-image.png`;
 
 export const metadata: Metadata = {
+  metadataBase: new URL(appUrl),
+  
   title: "Base Polls",
   description: "Daily polls for the Base ecosystem.",
-  // Sosyal Medya Önizlemeleri (Open Graph)
+ 
   openGraph: {
     title: "Base Polls",
     description: "Daily polls for the Base ecosystem.",
@@ -38,17 +33,19 @@ export const metadata: Metadata = {
     locale: "en_US",
     type: "website",
   },
-  // Farcaster Frame Ayarları (Kritik Kısım)
+  
+  // Farcaster Frame Etiketleri
   other: {
     'base:app_id': '694117afd77c069a945bdf4d',
     
     "fc:frame": "vNext",
-    "fc:frame:image": imageUrl,
+    "fc:frame:image": imageUrl, // Tam URL kullanıyoruz
     "fc:frame:image:aspect_ratio": "1.91:1",
-    // Bu buton "Mini App"i başlatır
+    
+    // Mini App Butonu
     "fc:frame:button:1": "Anketi Başlat 🗳️",
     "fc:frame:button:1:action": "link",
-    "fc:frame:button:1:target": appUrl, // Butona basınca Ana Sayfa açılır
+    "fc:frame:button:1:target": appUrl,
   },
 };
 
